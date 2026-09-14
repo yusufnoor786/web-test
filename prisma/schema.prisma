@@ -1,0 +1,142 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Customer {
+  id             String                  @id @default(cuid())
+  email          String                  @unique
+  name           String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  orders         Order[]
+  recoveryTokens PurchaseRecoveryToken[]
+}
+
+model Product {
+  id               String                @id @default(cuid())
+  slug             String                @unique
+  title            String
+  category         String                // "NOTES", "GUIDES", "PLAYBOOKS", "TEMPLATES", "CASE_STUDIES", "BUNDLES"
+  tagline          String
+  description      String
+  price            Int                   // In INR (e.g. 149)
+  compareAtPrice   Int?                  // In INR (e.g. 299)
+  currency         String                @default("INR")
+  format           String                // e.g. "PDF · 86 pages", "ZIP Resource Bundle"
+  pageCount        Int?
+  fileSize         String?               // e.g. "18.4 MB"
+  level            String?               // "Beginner to Advanced", "Intermediate", "All Levels"
+  tags             String                // Stored as JSON string array
+  whatYouLearn     String                // Stored as JSON string array
+  whatsIncluded    String                // Stored as JSON string array
+  faq              String                // Stored as JSON array of {q: string, a: string}
+  previewPages     String                // Stored as JSON array of {page: number, title: string, content: string}
+  filePath         String                // Path relative to STORAGE_DIR, e.g. "meta-ads-playbook.pdf"
+  bundleProductIds String?               // JSON array of product IDs if this is a bundle
+  isPublished      Boolean               @default(true)
+  isFeatured       Boolean               @default(false)
+  isBestseller     Boolean               @default(false)
+  sortOrder        Int                   @default(0)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  orderItems   OrderItem[]
+  entitlements DownloadEntitlement[]
+}
+
+model Order {
+  id                String                @id @default(cuid())
+  orderNumber       String                @unique // e.g. "ORD-2026-8492"
+  customerId        String
+  status            String                @default("PENDING") // PENDING, PAID, FAILED, REFUNDED, CANCELLED
+  currency          String                @default("INR")
+  subtotal          Int
+  discount          Int                   @default(0)
+  total             Int
+  couponCode        String?
+  razorpayOrderId   String?               @unique
+  razorpayPaymentId String?
+  razorpaySignature String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  customer     Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items        OrderItem[]
+  entitlements DownloadEntitlement[]
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String
+  price     Int
+  createdAt DateTime @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model DownloadEntitlement {
+  id            String          @id @default(cuid())
+  orderId       String
+  productId     String
+  tokenHash     String          @unique // SHA-256 hash of random access token
+  maxDownloads  Int             @default(5)
+  downloadCount Int             @default(0)
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  order  Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id])
+  events DownloadEvent[]
+}
+
+model DownloadEvent {
+  id            String   @id @default(cuid())
+  entitlementId String
+  ipAddress     String?
+  userAgent     String?
+  downloadedAt  DateTime @default(now())
+
+  entitlement DownloadEntitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+}
+
+model Coupon {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  discountType   String    // "PERCENTAGE" or "FIXED"
+  discountValue  Int       // e.g. 20 for 20% or 100 for ₹100
+  minOrderAmount Int       @default(0)
+  maxUses        Int?
+  usedCount      Int       @default(0)
+  expiresAt      DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+}
+
+model PurchaseRecoveryToken {
+  id         String    @id @default(cuid())
+  customerId String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model ContactInquiry {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,125 @@
+%PDF-1.4
+%âãÏÓ
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 6 0 R 9 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 12 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1032 >>
+stream
+BT
+/F1 24 Tf
+50 720 Td
+(SEO Master Notes: Information Architecture & Ranking Signals) Tj
+/F1 14 Tf
+0 -30 Td
+(Comprehensive Reference Notes on Crawl Budgets, Semantic Entities & Topic Clusters) Tj
+/F1 10 Tf
+0 -40 Td
+(THE GROWTH ARCHIVE  |  FIELD KNOWLEDGE EDITION 2026) Tj
+0 -20 Td
+(CONFIDENTIAL & PROPRIETARY  |  LICENSED FOR SINGLE-OPERATOR USE) Tj
+0 -40 Td
+/F1 16 Tf
+(EXECUTIVE BRIEFING & METHODOLOGY) Tj
+/F1 11 Tf
+0 -25 Td
+(This digital resource synthesizes production experiments, campaign architecture,) Tj
+0 -18 Td
+(and battle-tested systems deployed across high-scale performance marketing campaigns.) Tj
+0 -18 Td
+(Every framework included here was verified against measurable CAC, ROAS, and retention.) Tj
+0 -30 Td
+/F1 14 Tf
+(CORE OBJECTIVES) Tj
+/F1 10 Tf
+0 -20 Td
+(1. Eliminate guesswork from campaign setup and scale with deterministic rules.) Tj
+0 -18 Td
+(2. Optimize unit economics, attribution models, and conversion rates.) Tj
+0 -18 Td
+(3. Execute standard operating procedures without relying on fragile hacks.) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 7 0 R /Resources << /Font << /F1 12 0 R >> >> >>
+endobj
+7 0 obj
+<< /Length 605 >>
+stream
+BT
+/F1 18 Tf
+50 720 Td
+(CHAPTER 1: SEMANTIC ENTITY MAPPING) Tj
+/F1 10 Tf
+0 -30 Td
+(Search engines rank topical authority clusters, not isolated keyword matches.) Tj
+0 -18 Td
+(Structure your information architecture using pillar pages linked to tightly focused satellite articles.) Tj
+0 -18 Td
+(Include schema.org structured data \(Article, FAQPage, BreadcrumbList\) on every URL.) Tj
+0 -18 Td
+(Internal anchor text must be descriptive and varied; avoid generic click-here anchors.) Tj
+0 -18 Td
+(Prioritize natural language entity co-occurrence in headers \(H2, H3\) and opening paragraphs.) Tj
+0 -18 Td
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 10 0 R /Resources << /Font << /F1 12 0 R >> >> >>
+endobj
+10 0 obj
+<< /Length 681 >>
+stream
+BT
+/F1 18 Tf
+50 720 Td
+(CHAPTER 2: TECHNICAL CRAWLABILITY & CWV CHECKLIST) Tj
+/F1 10 Tf
+0 -30 Td
+(Ensure server response time \(TTFB\) is below 300ms across all cached endpoints.) Tj
+0 -18 Td
+(Eliminate redirect chains and clean orphan URLs using periodic XML sitemap audits.) Tj
+0 -18 Td
+(Target Largest Contentful Paint \(LCP\) < 2.0s, Cumulative Layout Shift \(CLS\) < 0.05.) Tj
+0 -18 Td
+(Utilize canonical tags strictly on duplicate and paginated parameter variations.) Tj
+0 -18 Td
+(Monitor Google Search Console Index Coverage weekly for soft 404s and noindex leaks.) Tj
+0 -18 Td
+0 -30 Td
+/F1 9 Tf
+(The Growth Archive - Verified Knowledge Products - All Rights Reserved) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000019 00000 n 
+0000000068 00000 n 
+0000000137 00000 n 
+0000000264 00000 n 
+0000000000 00000 n 
+0000001348 00000 n 
+0000001475 00000 n 
+0000000000 00000 n 
+0000002131 00000 n 
+0000002259 00000 n 
+0000000000 00000 n 
+0000002992 00000 n 
+trailer
+<< /Size 13 /Root 1 0 R >>
+startxref
+3063
+%%EOF
