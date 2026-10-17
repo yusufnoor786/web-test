@@ -464,12 +464,32 @@ async function main() {
     },
   ];
 
+  const isSqlite =
+    process.env.DATABASE_URL?.startsWith('file:') ||
+    process.env.DATABASE_URL?.includes('.db');
+
   const createdProducts = [];
   for (const p of productsData) {
     const created = await prisma.product.create({
       data: {
         ...p,
-      },
+        category: p.category as any,
+        tags: isSqlite
+          ? (typeof p.tags === 'string' ? p.tags : JSON.stringify(p.tags))
+          : (typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags),
+        whatYouLearn: isSqlite
+          ? (typeof p.whatYouLearn === 'string' ? p.whatYouLearn : JSON.stringify(p.whatYouLearn))
+          : (typeof p.whatYouLearn === 'string' ? JSON.parse(p.whatYouLearn) : p.whatYouLearn),
+        whatsIncluded: isSqlite
+          ? (typeof p.whatsIncluded === 'string' ? p.whatsIncluded : JSON.stringify(p.whatsIncluded))
+          : (typeof p.whatsIncluded === 'string' ? JSON.parse(p.whatsIncluded) : p.whatsIncluded),
+        faq: isSqlite
+          ? (typeof p.faq === 'string' ? p.faq : JSON.stringify(p.faq))
+          : (typeof p.faq === 'string' ? JSON.parse(p.faq) : p.faq),
+        previewPages: isSqlite
+          ? (typeof p.previewPages === 'string' ? p.previewPages : JSON.stringify(p.previewPages))
+          : (typeof p.previewPages === 'string' ? JSON.parse(p.previewPages) : p.previewPages),
+      } as any,
     });
     createdProducts.push(created);
     console.log(`[Seed] Created product: ${created.title} (${created.id})`);
@@ -479,6 +499,33 @@ async function main() {
   console.log('[Seed] Seeding curated bundles with relational BundleItems...');
 
   // Bundle 1: Complete Growth Marketing Vault (All 10 products)
+  const completeVaultTags = ['Bundle', 'Complete Library', 'All Products', 'VIP', 'Best Value'];
+  const completeVaultWhatYouLearn = [
+    'Master the full growth stack: Paid Acquisition (Meta & Google), SEO, Analytics, Funnels, and Content.',
+    'Access all operational templates, budget models, and creative swipe files.',
+    'Study genuine growth experiments with raw data and spend breakdowns.',
+    'Receive all future revisions and additions at no extra cost.',
+  ];
+  const completeVaultWhatsIncluded = [
+    'Instant access to all 10 individual products and their bonus files.',
+    'Individual download links in your customer portal.',
+    'Priority email Q&A support for implementation questions.',
+    'Free lifetime access to all future editions and updates.',
+  ];
+  const completeVaultFaq = [
+    {
+      question: 'Do I get all 10 products immediately?',
+      answer: 'Yes, as soon as payment is confirmed, your download portal will unlock access to every product in the library.',
+    },
+    {
+      question: 'Do I get future products added to the store?',
+      answer: 'Yes, all future updates and additions to existing products are included forever.',
+    },
+  ];
+  const completeVaultPreviewPages = [
+    'The Complete Vault Index: Unifies tactical execution across paid media, SEO, retention, and analytics.',
+  ];
+
   const completeVault = await prisma.product.create({
     data: {
       slug: 'complete-growth-marketing-library',
@@ -494,39 +541,18 @@ async function main() {
       pageCount: 620,
       fileSize: '185 MB',
       level: 'All Levels',
-      tags: JSON.stringify(['Bundle', 'Complete Library', 'All Products', 'VIP', 'Best Value']),
-      whatYouLearn: JSON.stringify([
-        'Master the full growth stack: Paid Acquisition (Meta & Google), SEO, Analytics, Funnels, and Content.',
-        'Access all operational templates, budget models, and creative swipe files.',
-        'Study genuine growth experiments with raw data and spend breakdowns.',
-        'Receive all future revisions and additions at no extra cost.',
-      ]),
-      whatsIncluded: JSON.stringify([
-        'Instant access to all 10 individual products and their bonus files.',
-        'Individual download links in your customer portal.',
-        'Priority email Q&A support for implementation questions.',
-        'Free lifetime access to all future editions and updates.',
-      ]),
-      faq: JSON.stringify([
-        {
-          question: 'Do I get all 10 products immediately?',
-          answer: 'Yes, as soon as payment is confirmed, your download portal will unlock access to every product in the library.',
-        },
-        {
-          question: 'Do I get future products added to the store?',
-          answer: 'Yes, all future updates and additions to existing products are included forever.',
-        },
-      ]),
-      previewPages: JSON.stringify([
-        'The Complete Vault Index: Unifies tactical execution across paid media, SEO, retention, and analytics.',
-      ]),
+      tags: (isSqlite ? JSON.stringify(completeVaultTags) : completeVaultTags) as any,
+      whatYouLearn: (isSqlite ? JSON.stringify(completeVaultWhatYouLearn) : completeVaultWhatYouLearn) as any,
+      whatsIncluded: (isSqlite ? JSON.stringify(completeVaultWhatsIncluded) : completeVaultWhatsIncluded) as any,
+      faq: (isSqlite ? JSON.stringify(completeVaultFaq) : completeVaultFaq) as any,
+      previewPages: (isSqlite ? JSON.stringify(completeVaultPreviewPages) : completeVaultPreviewPages) as any,
       storageKey: 'products/complete-vault-archive.zip',
       checksumSha256: '0718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6',
       isPublished: true,
       isFeatured: true,
       isBestseller: true,
       sortOrder: 0,
-    },
+    } as any,
   });
 
   // Link all 10 products to the Complete Vault via BundleItem junction table
@@ -546,6 +572,27 @@ async function main() {
     ['meta-ads-playbook', 'google-search-pmax-playbook', 'marketing-analytics-attribution-notes'].includes(p.slug)
   );
 
+  const paidBundleTags = ['Bundle', 'Paid Ads', 'Meta Ads', 'Google Ads', 'Analytics'];
+  const paidBundleWhatYouLearn = [
+    'Run modern consolidated Meta Ads campaigns and creative testing sandboxes.',
+    'Capture high-intent search traffic with negative keyword lists and structured PMax.',
+    'Measure Blended CAC and eliminate tracking blind spots with first-party attribution.',
+  ];
+  const paidBundleWhatsIncluded = [
+    'Meta Ads Playbook (104 pages + 3 Spreadsheets).',
+    'Google Search & PMax Playbook (88 pages + Negative Keyword Stack).',
+    'Performance Analytics Notes (58 pages + Event Schema).',
+  ];
+  const paidBundleFaq = [
+    {
+      question: 'Are the spreadsheets included in this bundle?',
+      answer: 'Yes, all bonus templates and spreadsheets from the three individual products are included.',
+    },
+  ];
+  const paidBundlePreviewPages = [
+    'The Paid Acquisition Triad: Demand generation on Meta, demand capture on Google Search, and attribution truth.',
+  ];
+
   const paidBundle = await prisma.product.create({
     data: {
       slug: 'paid-acquisition-mastery-bundle',
@@ -561,33 +608,18 @@ async function main() {
       pageCount: 250,
       fileSize: '57 MB',
       level: 'Intermediate to Advanced',
-      tags: JSON.stringify(['Bundle', 'Paid Ads', 'Meta Ads', 'Google Ads', 'Analytics']),
-      whatYouLearn: JSON.stringify([
-        'Run modern consolidated Meta Ads campaigns and creative testing sandboxes.',
-        'Capture high-intent search traffic with negative keyword lists and structured PMax.',
-        'Measure Blended CAC and eliminate tracking blind spots with first-party attribution.',
-      ]),
-      whatsIncluded: JSON.stringify([
-        'Meta Ads Playbook (104 pages + 3 Spreadsheets).',
-        'Google Search & PMax Playbook (88 pages + Negative Keyword Stack).',
-        'Performance Analytics Notes (58 pages + Event Schema).',
-      ]),
-      faq: JSON.stringify([
-        {
-          question: 'Are the spreadsheets included in this bundle?',
-          answer: 'Yes, all bonus templates and spreadsheets from the three individual products are included.',
-        },
-      ]),
-      previewPages: JSON.stringify([
-        'The Paid Acquisition Triad: Demand generation on Meta, demand capture on Google Search, and attribution truth.',
-      ]),
+      tags: (isSqlite ? JSON.stringify(paidBundleTags) : paidBundleTags) as any,
+      whatYouLearn: (isSqlite ? JSON.stringify(paidBundleWhatYouLearn) : paidBundleWhatYouLearn) as any,
+      whatsIncluded: (isSqlite ? JSON.stringify(paidBundleWhatsIncluded) : paidBundleWhatsIncluded) as any,
+      faq: (isSqlite ? JSON.stringify(paidBundleFaq) : paidBundleFaq) as any,
+      previewPages: (isSqlite ? JSON.stringify(paidBundlePreviewPages) : paidBundlePreviewPages) as any,
       storageKey: 'products/paid-acquisition-triad.zip',
       checksumSha256: '18293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f607',
       isPublished: true,
       isFeatured: true,
       isBestseller: false,
       sortOrder: 1,
-    },
+    } as any,
   });
 
   for (let i = 0; i < paidTriadProducts.length; i++) {

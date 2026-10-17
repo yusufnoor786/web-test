@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "setup": "bash ./scripts/setup-mac.sh",
+    "postinstall": "prisma generate",
     "clean": "rm -rf .next tsconfig.tsbuildinfo",
     "dev": "next dev",
     "build": "next build",

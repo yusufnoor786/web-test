@@ -51,14 +51,14 @@ async function main() {
     update: {
       name,
       passwordHash,
-      role,
+      role: role as any,
       isActive: true,
     },
     create: {
       email,
       name,
       passwordHash,
-      role,
+      role: role as any,
       isActive: true,
     },
   });

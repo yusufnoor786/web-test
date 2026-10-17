@@ -113,6 +113,32 @@ export async function POST(req: NextRequest) {
     const fileSize = `${sizeInMb} MB`;
 
     // 5. Create product record in database
+    const isSqlite =
+      process.env.DATABASE_URL?.startsWith('file:') ||
+      process.env.DATABASE_URL?.includes('.db');
+
+    const defaultTags = [category, 'Digital Marketing', 'Growth'];
+    const defaultWhatYouLearn = [
+      'Practical frameworks and step-by-step methodologies.',
+      'Battle-tested operating procedures for consistent execution.',
+      'Tactical checklists and resource guides.',
+    ];
+    const defaultWhatsIncluded = [
+      computedFormat,
+      'Single-operator commercial license.',
+      'Instant access & unlimited re-downloads from customer portal.',
+    ];
+    const defaultFaq = [
+      {
+        question: 'How do I download my product?',
+        answer: 'Immediately after checkout you will receive a secure tokenized download link and customer portal access.',
+      },
+    ];
+    const defaultPreviewPages = [
+      `Overview & executive briefing from ${title}.`,
+      'Core strategic models, testing principles, and execution protocols.',
+    ];
+
     const product = await prisma.product.create({
       data: {
         slug,
@@ -132,27 +158,11 @@ export async function POST(req: NextRequest) {
         isFeatured,
         isBestseller,
         sortOrder: 0,
-        tags: JSON.stringify([category, 'Digital Marketing', 'Growth']),
-        whatYouLearn: JSON.stringify([
-          'Practical frameworks and step-by-step methodologies.',
-          'Battle-tested operating procedures for consistent execution.',
-          'Tactical checklists and resource guides.',
-        ]),
-        whatsIncluded: JSON.stringify([
-          computedFormat,
-          'Single-operator commercial license.',
-          'Instant access & unlimited re-downloads from customer portal.',
-        ]),
-        faq: JSON.stringify([
-          {
-            question: 'How do I download my product?',
-            answer: 'Immediately after checkout you will receive a secure tokenized download link and customer portal access.',
-          },
-        ]),
-        previewPages: JSON.stringify([
-          `Overview & executive briefing from ${title}.`,
-          'Core strategic models, testing principles, and execution protocols.',
-        ]),
+        tags: (isSqlite ? JSON.stringify(defaultTags) : defaultTags) as any,
+        whatYouLearn: (isSqlite ? JSON.stringify(defaultWhatYouLearn) : defaultWhatYouLearn) as any,
+        whatsIncluded: (isSqlite ? JSON.stringify(defaultWhatsIncluded) : defaultWhatsIncluded) as any,
+        faq: (isSqlite ? JSON.stringify(defaultFaq) : defaultFaq) as any,
+        previewPages: (isSqlite ? JSON.stringify(defaultPreviewPages) : defaultPreviewPages) as any,
       },
       include: {
         _count: {

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     'Explore the complete collection of digital marketing notes, tactical playbooks, operating system templates, and real growth experiment post-mortems.',
 };
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 function mapProductToClient(p: any) {
   return {
@@ -20,10 +20,15 @@ function mapProductToClient(p: any) {
 }
 
 export default async function StorePage() {
-  const products = await prisma.product.findMany({
-    where: { isPublished: true },
-    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
-  });
+  let products: any[] = [];
+  try {
+    products = await prisma.product.findMany({
+      where: { isPublished: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+  } catch (err) {
+    console.error('[StorePage] Failed to fetch products:', err);
+  }
 
   return <StoreClient initialProducts={products.map(mapProductToClient)} />;
 }

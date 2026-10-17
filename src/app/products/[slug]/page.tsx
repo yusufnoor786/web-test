@@ -8,6 +8,8 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+export const dynamic = 'force-dynamic';
+
 function mapProductToClient(p: any) {
   return {
     ...p,

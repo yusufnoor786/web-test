@@ -2,7 +2,7 @@ import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { HomeClient } from '@/components/HomeClient';
 
-export const revalidate = 60; // ISR cache for 60 seconds
+export const dynamic = 'force-dynamic';
 
 function mapProductToClient(p: any) {
   return {
@@ -13,21 +13,32 @@ function mapProductToClient(p: any) {
 }
 
 export default async function HomePage() {
-  const [featuredProducts, allProducts, bundles] = await Promise.all([
-    prisma.product.findMany({
-      where: { isPublished: true, isFeatured: true, category: { not: 'BUNDLE' } },
-      orderBy: { sortOrder: 'asc' },
-      take: 4,
-    }),
-    prisma.product.findMany({
-      where: { isPublished: true, category: { not: 'BUNDLE' } },
-      orderBy: { sortOrder: 'asc' },
-    }),
-    prisma.product.findMany({
-      where: { isPublished: true, category: 'BUNDLE' },
-      orderBy: { sortOrder: 'asc' },
-    }),
-  ]);
+  let featuredProducts: any[] = [];
+  let allProducts: any[] = [];
+  let bundles: any[] = [];
+
+  try {
+    const results = await Promise.all([
+      prisma.product.findMany({
+        where: { isPublished: true, isFeatured: true, category: { not: 'BUNDLE' } },
+        orderBy: { sortOrder: 'asc' },
+        take: 4,
+      }),
+      prisma.product.findMany({
+        where: { isPublished: true, category: { not: 'BUNDLE' } },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.product.findMany({
+        where: { isPublished: true, category: 'BUNDLE' },
+        orderBy: { sortOrder: 'asc' },
+      }),
+    ]);
+    featuredProducts = results[0];
+    allProducts = results[1];
+    bundles = results[2];
+  } catch (err) {
+    console.error('[HomePage] Failed to fetch products:', err);
+  }
 
   return (
     <HomeClient
