@@ -111,6 +111,7 @@ export async function sendOrderReceiptEmail(props: EmailReceiptProps): Promise<{
 
   if (apiKey && !apiKey.includes('placeholder')) {
     try {
+      const senderEmail = process.env.EMAIL_FROM || 'The Growth Archive <onboarding@resend.dev>';
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -118,7 +119,7 @@ export async function sendOrderReceiptEmail(props: EmailReceiptProps): Promise<{
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM || 'The Growth Archive <orders@growtharchive.com>',
+          from: senderEmail,
           to: [props.customerEmail],
           subject: `Your Digital Products & Receipt [Order #${props.orderNumber}]`,
           html: htmlContent,
@@ -128,6 +129,30 @@ export async function sendOrderReceiptEmail(props: EmailReceiptProps): Promise<{
       if (!response.ok) {
         const err = await response.text();
         console.error('Failed to send email via Resend:', err);
+
+        // Auto-healing: If unverified domain error, retry with Resend sandbox sender
+        if (err.includes('domain is not verified') && !senderEmail.includes('onboarding@resend.dev')) {
+          console.warn('[Resend] Custom domain not yet verified. Retrying with onboarding@resend.dev...');
+          const retryResponse = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              from: 'The Growth Archive <onboarding@resend.dev>',
+              to: [props.customerEmail],
+              subject: `Your Digital Products & Receipt [Order #${props.orderNumber}]`,
+              html: htmlContent,
+            }),
+          });
+
+          if (retryResponse.ok) {
+            const retryRes = await retryResponse.json();
+            return { success: true, id: retryRes.id };
+          }
+        }
+
         return { success: false };
       }
 
