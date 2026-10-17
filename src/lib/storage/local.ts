@@ -107,5 +107,10 @@ export class LocalStorageProvider implements StorageProvider {
     }
     await fs.promises.writeFile(absPath, buffer);
   }
+
+  async getPresignedUploadUrl(_storageKey: string, _contentType: string, _expiresInSeconds?: number): Promise<string | null> {
+    return null;
+  }
 }
+
 

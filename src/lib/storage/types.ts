@@ -36,4 +36,10 @@ export interface StorageProvider {
    * Uploads and persists a file to storage.
    */
   uploadFile(storageKey: string, buffer: Buffer, mimeType?: string): Promise<void>;
+
+  /**
+   * Generates a presigned URL for direct browser uploads, if supported.
+   */
+  getPresignedUploadUrl?(storageKey: string, contentType: string, expiresInSeconds?: number): Promise<string | null>;
 }
+

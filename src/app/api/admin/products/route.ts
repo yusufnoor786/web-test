@@ -53,29 +53,154 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-    const title = (formData.get('title') as string || '').trim();
-    const categoryRaw = (formData.get('category') as string || 'PLAYBOOK').trim().toUpperCase();
-    const tagline = (formData.get('tagline') as string || '').trim();
-    const description = (formData.get('description') as string || '').trim();
-    const priceStr = formData.get('price') as string || '0';
-    const compareAtStr = formData.get('compareAtPrice') as string | null;
-    const formatInput = (formData.get('format') as string || '').trim();
-    const level = (formData.get('level') as string || 'All Levels').trim();
-    const isPublished = formData.get('isPublished') === 'true' || formData.get('isPublished') === '1';
-    const isFeatured = formData.get('isFeatured') === 'true' || formData.get('isFeatured') === '1';
-    const isBestseller = formData.get('isBestseller') === 'true' || formData.get('isBestseller') === '1';
+    const contentTypeHeader = req.headers.get('content-type') || '';
+    const isJson = contentTypeHeader.includes('application/json');
 
-    // 1. Validation
-    if (!title) {
-      return NextResponse.json({ error: 'Product title is required' }, { status: 400 });
+    let title = '';
+    let categoryRaw = 'PLAYBOOK';
+    let tagline = '';
+    let description = '';
+    let priceStr = '0';
+    let compareAtStr: string | null = null;
+    let formatInput = '';
+    let level = 'All Levels';
+    let isPublished = false;
+    let isFeatured = false;
+    let isBestseller = false;
+
+    let storageKey = '';
+    let fileSize = '';
+    let computedFormat = '';
+    let checksumSha256 = '';
+    let slug = '';
+
+    const validCategories = ['NOTE', 'GUIDE', 'PLAYBOOK', 'TEMPLATE', 'CASE_STUDY', 'BUNDLE'];
+
+    if (isJson) {
+      // 1A. Direct upload mode (file was uploaded directly to Cloudflare R2 via presigned URL)
+      const body = await req.json();
+      title = (body.title as string || '').trim();
+      categoryRaw = (body.category as string || 'PLAYBOOK').trim().toUpperCase();
+      tagline = (body.tagline as string || '').trim();
+      description = (body.description as string || '').trim();
+      priceStr = String(body.price ?? '0');
+      compareAtStr = body.compareAtPrice ? String(body.compareAtPrice) : null;
+      formatInput = (body.format as string || '').trim();
+      level = (body.level as string || 'All Levels').trim();
+      isPublished = Boolean(body.isPublished);
+      isFeatured = Boolean(body.isFeatured);
+      isBestseller = Boolean(body.isBestseller);
+
+      storageKey = (body.storageKey as string || '').trim();
+      slug = (body.slug as string || '').trim();
+      fileSize = (body.fileSize as string || '').trim();
+
+      if (!title) {
+        return NextResponse.json({ error: 'Product title is required' }, { status: 400 });
+      }
+
+      if (!storageKey) {
+        return NextResponse.json({ error: 'File upload is required (storage key missing)' }, { status: 400 });
+      }
+
+      // Check storage key for security
+      if (!storageKey.startsWith('products/') || storageKey.includes('..')) {
+        return NextResponse.json({ error: 'Invalid storage key path' }, { status: 400 });
+      }
+
+      // Verify file exists in storage provider and fetch real size
+      const storageProvider = getStorageProvider();
+      try {
+        const meta = await storageProvider.getMetadata(storageKey);
+        if (meta && meta.sizeBytes > 0) {
+          const sizeInMb = (meta.sizeBytes / (1024 * 1024)).toFixed(1);
+          fileSize = `${sizeInMb} MB`;
+          const ext = path.extname(storageKey).toLowerCase();
+          computedFormat = formatInput || (ext === '.pdf' ? `PDF · ${sizeInMb} MB` : `ZIP · ${sizeInMb} MB`);
+        }
+      } catch (e) {
+        console.warn('Could not read metadata for storageKey:', storageKey, e);
+      }
+
+      if (!fileSize) fileSize = '1.0 MB';
+      if (!computedFormat) computedFormat = formatInput || `PDF · ${fileSize}`;
+      checksumSha256 = crypto.createHash('sha256').update(storageKey).digest('hex');
+
+      // Ensure slug uniqueness
+      if (!slug) {
+        let baseSlug = title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '');
+        if (!baseSlug) baseSlug = 'digital-product';
+        slug = baseSlug;
+      }
+      let counter = 1;
+      const initialSlug = slug;
+      while (await prisma.product.findUnique({ where: { slug } })) {
+        counter++;
+        slug = `${initialSlug}-${counter}`;
+      }
+    } else {
+      // 1B. Multipart form-data fallback
+      const formData = await req.formData();
+      const file = formData.get('file') as File | null;
+      title = (formData.get('title') as string || '').trim();
+      categoryRaw = (formData.get('category') as string || 'PLAYBOOK').trim().toUpperCase();
+      tagline = (formData.get('tagline') as string || '').trim();
+      description = (formData.get('description') as string || '').trim();
+      priceStr = formData.get('price') as string || '0';
+      compareAtStr = formData.get('compareAtPrice') as string | null;
+      formatInput = (formData.get('format') as string || '').trim();
+      level = (formData.get('level') as string || 'All Levels').trim();
+      isPublished = formData.get('isPublished') === 'true' || formData.get('isPublished') === '1';
+      isFeatured = formData.get('isFeatured') === 'true' || formData.get('isFeatured') === '1';
+      isBestseller = formData.get('isBestseller') === 'true' || formData.get('isBestseller') === '1';
+
+      if (!title) {
+        return NextResponse.json({ error: 'Product title is required' }, { status: 400 });
+      }
+
+      if (!file || file.size === 0) {
+        return NextResponse.json({ error: 'Please select a PDF or ZIP file to upload' }, { status: 400 });
+      }
+
+      // Generate unique slug from title
+      let baseSlug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+      if (!baseSlug) baseSlug = 'digital-product';
+
+      slug = baseSlug;
+      let counter = 1;
+      while (await prisma.product.findUnique({ where: { slug } })) {
+        counter++;
+        slug = `${baseSlug}-${counter}`;
+      }
+
+      // Save uploaded file to private storage
+      const originalName = file.name || `${slug}.pdf`;
+      let ext = path.extname(originalName).toLowerCase();
+      if (!ext) ext = '.pdf';
+
+      const safeFileName = `${slug}${ext}`;
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      checksumSha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+
+      const storageProvider = getStorageProvider();
+      const mimeType = ext === '.pdf' ? 'application/pdf' : ext === '.zip' ? 'application/zip' : 'application/octet-stream';
+      storageKey = `products/${safeFileName}`;
+      await storageProvider.uploadFile(storageKey, buffer, mimeType);
+
+      const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
+      computedFormat = formatInput || (ext === '.pdf' ? `PDF · ${sizeInMb} MB` : `ZIP · ${sizeInMb} MB`);
+      fileSize = `${sizeInMb} MB`;
     }
 
-    if (!file || file.size === 0) {
-      return NextResponse.json({ error: 'Please select a PDF or ZIP file to upload' }, { status: 400 });
-    }
-
+    // Common Price & Category Validation
     const priceNum = parseFloat(priceStr);
     if (isNaN(priceNum) || priceNum <= 0) {
       return NextResponse.json({ error: 'Price must be a valid number greater than 0' }, { status: 400 });
@@ -89,44 +214,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Validate category against enum
-    const validCategories = ['NOTE', 'GUIDE', 'PLAYBOOK', 'TEMPLATE', 'CASE_STUDY', 'BUNDLE'];
     const category = validCategories.includes(categoryRaw) ? categoryRaw : 'PLAYBOOK';
 
-    // 2. Generate unique slug from title
-    let baseSlug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '');
-    if (!baseSlug) baseSlug = 'digital-product';
-
-    let slug = baseSlug;
-    let counter = 1;
-    while (await prisma.product.findUnique({ where: { slug } })) {
-      counter++;
-      slug = `${baseSlug}-${counter}`;
-    }
-
-    // 3. Save uploaded file to private storage
-    const originalName = file.name || `${slug}.pdf`;
-    let ext = path.extname(originalName).toLowerCase();
-    if (!ext) ext = '.pdf';
-
-    const safeFileName = `${slug}${ext}`;
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Compute cryptographic SHA-256 integrity checksum
-    const checksumSha256 = crypto.createHash('sha256').update(buffer).digest('hex');
-
-    const storageProvider = getStorageProvider();
-    const mimeType = ext === '.pdf' ? 'application/pdf' : ext === '.zip' ? 'application/zip' : 'application/octet-stream';
-    await storageProvider.uploadFile(`products/${safeFileName}`, buffer, mimeType);
-
-    // 4. Compute format & size display
-    const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
-    const computedFormat = formatInput || (ext === '.pdf' ? `PDF · ${sizeInMb} MB` : `ZIP · ${sizeInMb} MB`);
-    const fileSize = `${sizeInMb} MB`;
 
     // 5. Create product record in database
     const isSqlite =
@@ -168,7 +257,7 @@ export async function POST(req: NextRequest) {
         format: computedFormat,
         fileSize,
         level,
-        storageKey: `products/${safeFileName}`,
+        storageKey,
         checksumSha256,
         isPublished,
         isFeatured,
@@ -198,7 +287,7 @@ export async function POST(req: NextRequest) {
         slug,
         price: priceNum,
         isPublished,
-        fileName: safeFileName,
+        fileName: path.basename(storageKey),
       },
       ipAddress: clientIp,
     });

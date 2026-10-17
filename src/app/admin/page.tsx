@@ -179,6 +179,7 @@ export default function AdminPage() {
   const [newProductLevel, setNewProductLevel] = useState('All Levels');
   const [newProductIsPublished, setNewProductIsPublished] = useState(false);
   const [isUploadingProduct, setIsUploadingProduct] = useState(false);
+  const [uploadStatusText, setUploadStatusText] = useState('');
   const [uploadError, setUploadError] = useState('');
   const [productSearch, setProductSearch] = useState('');
 
@@ -435,30 +436,115 @@ export default function AdminPage() {
     }
 
     setIsUploadingProduct(true);
+    setUploadStatusText('Preparing upload...');
     setUploadError('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', newProductFile);
-      formData.append('title', newProductTitle.trim());
-      formData.append('category', newProductCategory);
-      formData.append('price', newProductPrice.trim());
-      if (newProductCompareAtPrice.trim()) {
-        formData.append('compareAtPrice', newProductCompareAtPrice.trim());
-      }
-      formData.append('tagline', newProductTagline.trim());
-      formData.append('description', newProductDescription.trim());
-      formData.append('format', newProductFormat.trim());
-      formData.append('level', newProductLevel);
-      formData.append('isPublished', newProductIsPublished ? 'true' : 'false');
-
-      const res = await authFetch('/api/admin/products', {
+      // 1. Request presigned upload URL from server
+      const urlRes = await authFetch('/api/admin/products/upload-url', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: newProductFile.name,
+          fileType: newProductFile.type,
+          fileSize: newProductFile.size,
+          title: newProductTitle.trim(),
+        }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to upload product');
+      const urlText = await urlRes.text();
+      let urlData: any = {};
+      try {
+        urlData = JSON.parse(urlText);
+      } catch {
+        throw new Error(urlText || 'Failed to initialize upload');
+      }
+
+      if (!urlRes.ok) {
+        throw new Error(urlData.error || 'Failed to initialize product upload');
+      }
+
+      if (urlData.directUpload && urlData.uploadUrl) {
+        // 2A. Direct upload to Cloudflare R2 (bypasses Vercel 4.5MB limit completely)
+        setUploadStatusText('Uploading file directly to Cloudflare R2...');
+        const r2Res = await fetch(urlData.uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': urlData.contentType || newProductFile.type || 'application/pdf',
+          },
+          body: newProductFile,
+        });
+
+        if (!r2Res.ok) {
+          const r2Err = await r2Res.text();
+          throw new Error(`Direct storage upload failed (${r2Res.status}): ${r2Err || 'Network error'}`);
+        }
+
+        // 3A. Save product metadata into Neon database
+        setUploadStatusText('Saving product details in database...');
+        const res = await authFetch('/api/admin/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: newProductTitle.trim(),
+            category: newProductCategory,
+            price: newProductPrice.trim(),
+            compareAtPrice: newProductCompareAtPrice.trim() || null,
+            tagline: newProductTagline.trim(),
+            description: newProductDescription.trim(),
+            format: newProductFormat.trim() || urlData.computedFormat,
+            level: newProductLevel,
+            isPublished: newProductIsPublished,
+            storageKey: urlData.storageKey,
+            slug: urlData.slug,
+            fileSize: urlData.fileSize,
+          }),
+        });
+
+        const createText = await res.text();
+        let createData: any = {};
+        try {
+          createData = JSON.parse(createText);
+        } catch {
+          throw new Error(createText || 'Failed to save product in database');
+        }
+
+        if (!res.ok) throw new Error(createData.error || 'Failed to save product in database');
+      } else {
+        // 2B. Fallback for environments without Cloudflare R2
+        setUploadStatusText('Uploading to server...');
+        const formData = new FormData();
+        formData.append('file', newProductFile);
+        formData.append('title', newProductTitle.trim());
+        formData.append('category', newProductCategory);
+        formData.append('price', newProductPrice.trim());
+        if (newProductCompareAtPrice.trim()) {
+          formData.append('compareAtPrice', newProductCompareAtPrice.trim());
+        }
+        formData.append('tagline', newProductTagline.trim());
+        formData.append('description', newProductDescription.trim());
+        formData.append('format', newProductFormat.trim());
+        formData.append('level', newProductLevel);
+        formData.append('isPublished', newProductIsPublished ? 'true' : 'false');
+
+        const res = await authFetch('/api/admin/products', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const resText = await res.text();
+        let data: any = {};
+        try {
+          data = JSON.parse(resText);
+        } catch {
+          if (res.status === 413) {
+            throw new Error('File exceeds the Vercel 4.5 MB serverless limit. Please ensure Cloudflare R2 credentials are set.');
+          }
+          throw new Error(resText || 'Failed to upload product');
+        }
+
+        if (!res.ok) throw new Error(data.error || 'Failed to upload product');
+      }
 
       showToast(`Product "${newProductTitle}" uploaded successfully!`);
       // Reset form
@@ -476,6 +562,7 @@ export default function AdminPage() {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setIsUploadingProduct(false);
+      setUploadStatusText('');
     }
   };
 
@@ -1575,7 +1662,7 @@ export default function AdminPage() {
                       {isUploadingProduct ? (
                         <>
                           <Loader2 size={16} className="animate-spin" />
-                          <span>Uploading & Processing PDF...</span>
+                          <span>{uploadStatusText || 'Uploading & Processing PDF...'}</span>
                         </>
                       ) : (
                         <>

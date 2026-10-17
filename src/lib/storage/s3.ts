@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import path from 'node:path';
 import { StorageFileInfo, StorageProvider, StorageStreamResult } from './types';
 import { LocalStorageProvider } from './local';
@@ -177,4 +178,28 @@ export class S3CompatibleStorageProvider implements StorageProvider {
       })
     );
   }
+
+  /**
+   * Generates a presigned PUT URL allowing clients (browsers) to upload directly
+   * to Cloudflare R2 / S3 without passing through Vercel serverless function body limits.
+   */
+  async getPresignedUploadUrl(
+    storageKey: string,
+    contentType: string,
+    expiresInSeconds = 3600
+  ): Promise<string | null> {
+    if (!this.client || !this.bucket) {
+      return null;
+    }
+
+    const key = this.cleanKey(storageKey);
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    return getSignedUrl(this.client, command, { expiresIn: expiresInSeconds });
+  }
 }
+
