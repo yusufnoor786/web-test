@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ALL_DEFAULT_ITEMS } from '@/lib/catalog/default-products';
 
 export async function GET(req: NextRequest) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const category = searchParams.get('category');
-    const featuredOnly = searchParams.get('featured') === 'true';
+  const { searchParams } = new URL(req.url);
+  const category = searchParams.get('category');
+  const featuredOnly = searchParams.get('featured') === 'true';
 
+  try {
     const where: Record<string, unknown> = {
       isPublished: true,
     };
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
       where.isFeatured = true;
     }
 
-    const rawProducts = await prisma.product.findMany({
+    let rawProducts = await prisma.product.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
       select: {
@@ -39,6 +40,17 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    if (rawProducts.length === 0) {
+      let filtered = ALL_DEFAULT_ITEMS;
+      if (category && category !== 'ALL') {
+        filtered = filtered.filter((p) => p.category === category.toUpperCase());
+      }
+      if (featuredOnly) {
+        filtered = filtered.filter((p) => p.isFeatured);
+      }
+      rawProducts = filtered as any;
+    }
+
     const products = rawProducts.map((p) => ({
       ...p,
       price: Math.round(p.priceInPaise / 100),
@@ -47,7 +59,19 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ products });
   } catch (err) {
-    console.error('Error fetching public products:', err);
-    return NextResponse.json({ error: 'Failed to retrieve products' }, { status: 500 });
+    console.error('Database query fallback for products:', err);
+    let filtered = ALL_DEFAULT_ITEMS;
+    if (category && category !== 'ALL') {
+      filtered = filtered.filter((p) => p.category === category.toUpperCase());
+    }
+    if (featuredOnly) {
+      filtered = filtered.filter((p) => p.isFeatured);
+    }
+    const products = filtered.map((p) => ({
+      ...p,
+      price: Math.round(p.priceInPaise / 100),
+      compareAtPrice: p.compareAtInPaise ? Math.round(p.compareAtInPaise / 100) : null,
+    }));
+    return NextResponse.json({ products });
   }
 }

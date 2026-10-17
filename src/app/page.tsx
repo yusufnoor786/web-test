@@ -1,6 +1,11 @@
 import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { HomeClient } from '@/components/HomeClient';
+import {
+  getDefaultFeaturedProducts,
+  getDefaultProducts,
+  getDefaultBundles,
+} from '@/lib/catalog/default-products';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +43,17 @@ export default async function HomePage() {
     bundles = results[2];
   } catch (err) {
     console.error('[HomePage] Failed to fetch products:', err);
+  }
+
+  // Graceful fallback to default curated catalog if database is not yet seeded
+  if (featuredProducts.length === 0) {
+    featuredProducts = getDefaultFeaturedProducts();
+  }
+  if (allProducts.length === 0) {
+    allProducts = getDefaultProducts();
+  }
+  if (bundles.length === 0) {
+    bundles = getDefaultBundles();
   }
 
   return (

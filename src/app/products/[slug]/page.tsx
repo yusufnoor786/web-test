@@ -3,6 +3,10 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/prisma';
 import { ProductDetailClient } from '@/components/ProductDetailClient';
+import {
+  getDefaultProductBySlug,
+  getDefaultProducts,
+} from '@/lib/catalog/default-products';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -20,9 +24,18 @@ function mapProductToClient(p: any) {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = await prisma.product.findUnique({
-    where: { slug },
-  });
+  let product: any = null;
+  try {
+    product = await prisma.product.findUnique({
+      where: { slug },
+    });
+  } catch {
+    product = null;
+  }
+
+  if (!product) {
+    product = getDefaultProductBySlug(slug);
+  }
 
   if (!product) {
     return {
@@ -55,9 +68,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProductDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
-  const productRaw = await prisma.product.findUnique({
-    where: { slug, isPublished: true },
-  });
+  let productRaw: any = null;
+  try {
+    productRaw = await prisma.product.findUnique({
+      where: { slug, isPublished: true },
+    });
+  } catch {
+    productRaw = null;
+  }
+
+  if (!productRaw) {
+    productRaw = getDefaultProductBySlug(slug);
+  }
 
   if (!productRaw) {
     notFound();
@@ -66,15 +88,26 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const product = mapProductToClient(productRaw);
 
   // Fetch related products in the same or complementary category
-  const relatedProductsRaw = await prisma.product.findMany({
-    where: {
-      isPublished: true,
-      id: { not: product.id },
-      category: { not: 'BUNDLE' },
-    },
-    take: 3,
-    orderBy: { sortOrder: 'asc' },
-  });
+  let relatedProductsRaw: any[] = [];
+  try {
+    relatedProductsRaw = await prisma.product.findMany({
+      where: {
+        isPublished: true,
+        id: { not: product.id },
+        category: { not: 'BUNDLE' },
+      },
+      take: 3,
+      orderBy: { sortOrder: 'asc' },
+    });
+  } catch {
+    relatedProductsRaw = [];
+  }
+
+  if (relatedProductsRaw.length === 0) {
+    relatedProductsRaw = getDefaultProducts()
+      .filter((p) => p.slug !== product.slug && p.category !== 'BUNDLE')
+      .slice(0, 3);
+  }
 
   const relatedProducts = relatedProductsRaw.map(mapProductToClient);
 
