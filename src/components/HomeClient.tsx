@@ -849,6 +849,7 @@ export function HomeClient({ featuredProducts, allProducts, bundles }: HomeClien
         isOpen={Boolean(previewData)}
         onClose={() => setPreviewData(null)}
         productTitle={previewData?.title || ''}
+        productSlug={previewData?.slug}
         previewPagesJson={previewData?.previewPages}
         price={previewData?.price}
         onBuy={() => {

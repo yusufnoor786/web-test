@@ -189,10 +189,10 @@ export function ProductCard({
         </div>
 
         <div style={{ display: 'flex', gap: '6px' }}>
-          {onPreview && previewPages && (
+          {onPreview && (
             <button
               type="button"
-              onClick={() => onPreview({ slug, title, previewPages })}
+              onClick={() => onPreview({ slug, title, previewPages: previewPages || '' })}
               className="btn btn-secondary btn-sm"
               title="Preview sample pages"
               aria-label={`Preview ${title}`}

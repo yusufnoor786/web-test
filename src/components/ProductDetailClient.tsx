@@ -601,6 +601,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
         productTitle={product.title}
+        productSlug={product.slug}
         previewPagesJson={product.previewPages}
         price={product.price}
         onBuy={() => {
