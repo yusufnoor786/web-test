@@ -18,15 +18,18 @@ const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours absolute TTL
 
 const ADMIN_SECRET =
   process.env.ADMIN_SESSION_SECRET ||
-  process.env.ADMIN_PASSWORD ||
-  'growth_archive_admin_fallback_secret_key_2026';
+  process.env.ADMIN_PASSWORD;
 
 function signBootstrapToken(token: string, expiresMs: number): string {
+  if (!ADMIN_SECRET) {
+    throw new Error('ADMIN_SESSION_SECRET or ADMIN_PASSWORD must be configured in environment variables.');
+  }
   const hmac = crypto.createHmac('sha256', ADMIN_SECRET).update(`${token}:${expiresMs}`).digest('hex');
   return `${token}.${expiresMs}.${hmac}`;
 }
 
 function verifyBootstrapToken(cookieValue: string): boolean {
+  if (!ADMIN_SECRET) return false;
   try {
     const parts = cookieValue.split('.');
     if (parts.length !== 3) return false;
@@ -42,7 +45,7 @@ function verifyBootstrapToken(cookieValue: string): boolean {
 
 /**
  * Authenticates an admin user by email and scrypt password.
- * First checks database. If database is offline or unseeded, falls back to ADMIN_EMAIL/ADMIN_PASSWORD.
+ * Checks database first. If database is unseeded, requires ADMIN_EMAIL & ADMIN_PASSWORD from private environment variables.
  */
 export async function authenticateAdmin(
   email: string,
@@ -67,14 +70,14 @@ export async function authenticateAdmin(
       }
     }
   } catch (err) {
-    console.warn('[Admin Auth] Database lookup bypassed, using environment credentials:', err);
+    console.warn('[Admin Auth] Database lookup bypassed, checking environment variables:', err);
   }
 
-  // Fallback to environment credentials (useful on Vercel before database seeding)
-  const envEmail = (process.env.ADMIN_EMAIL || 'admin@thegrowtharchive.com').trim().toLowerCase();
-  const envPassword = process.env.ADMIN_PASSWORD || 'GrowthArchiveAdmin2026!#';
+  // Strict environment-variable authentication: NEVER use hardcoded fallback passwords
+  const envEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const envPassword = process.env.ADMIN_PASSWORD;
 
-  if (normalizedEmail === envEmail && (passwordPlain === envPassword || passwordPlain === 'GrowthArchiveAdmin2026!#')) {
+  if (envEmail && envPassword && normalizedEmail === envEmail && passwordPlain === envPassword) {
     return {
       id: 'admin_bootstrap_env',
       email: envEmail,
