@@ -28,6 +28,49 @@ export interface CatalogProduct {
 
 export const DEFAULT_PRODUCTS: CatalogProduct[] = [
   {
+    id: 'cmvc968mz0000ryd8uw7rm8vv',
+    slug: 'projectmistos-audit',
+    title: 'Projectmistos Audit',
+    category: 'PLAYBOOK',
+    tagline: 'the test audit',
+    description: 'xyz test audit with data base',
+    priceInPaise: 19900,
+    compareAtInPaise: 39900,
+    currency: 'INR',
+    format: 'PDF · 2.3 MB',
+    pageCount: null,
+    fileSize: '2.3 MB',
+    level: 'All Levels',
+    tags: ['PLAYBOOK', 'Digital Marketing', 'Growth'],
+    whatYouLearn: [
+      'Practical frameworks and step-by-step methodologies.',
+      'Battle-tested operating procedures for consistent execution.',
+      'Tactical checklists and resource guides.',
+    ],
+    whatsIncluded: [
+      'PDF · 2.3 MB',
+      'Single-operator commercial license.',
+      'Instant access & unlimited re-downloads from customer portal.',
+    ],
+    faq: [
+      {
+        question: 'How do I download my product?',
+        answer: 'Immediately after checkout you will receive a secure tokenized download link and customer portal access.',
+      },
+    ],
+    previewPages: [
+      'Overview & executive briefing from Projectmistos Audit.',
+      'Core strategic models, testing principles, and execution protocols.',
+    ],
+    storageKey: 'products/projectmistos-audit.pdf',
+    isPublished: true,
+    isFeatured: true,
+    isBestseller: true,
+    sortOrder: 0,
+    createdAt: new Date('2026-03-20'),
+    updatedAt: new Date('2026-03-20'),
+  },
+  {
     id: 'prod_meta_ads',
     slug: 'meta-ads-playbook',
     title: 'Meta Ads Playbook: 2026 Campaign Architecture & Scaling',

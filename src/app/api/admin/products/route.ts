@@ -7,6 +7,8 @@ import { requireAdminAuth, logAuditEvent } from '@/lib/auth/admin';
 import { getClientIp } from '@/lib/rate-limit';
 import { getStorageProvider } from '@/lib/storage';
 
+import { ALL_DEFAULT_ITEMS } from '@/lib/catalog/default-products';
+
 export async function GET(req: NextRequest) {
   const auth = await requireAdminAuth(req);
   if ('errorResponse' in auth) {
@@ -23,10 +25,24 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    if (products.length === 0) {
+      return NextResponse.json({
+        products: ALL_DEFAULT_ITEMS.map((p) => ({
+          ...p,
+          _count: { orderItems: 0, entitlements: 0 },
+        })),
+      });
+    }
+
     return NextResponse.json({ products });
   } catch (err) {
-    console.error('Error fetching admin products:', err);
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+    console.error('Database query fallback for admin products:', err);
+    return NextResponse.json({
+      products: ALL_DEFAULT_ITEMS.map((p) => ({
+        ...p,
+        _count: { orderItems: 0, entitlements: 0 },
+      })),
+    });
   }
 }
 
