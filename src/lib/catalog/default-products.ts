@@ -28,6 +28,52 @@ export interface CatalogProduct {
 
 export const DEFAULT_PRODUCTS: CatalogProduct[] = [
   {
+    id: 'prod_digital_fundamentals',
+    slug: 'digital-marketing-fundamentals',
+    title: 'Digital Marketing Fundamentals: Growth Architecture',
+    category: 'GUIDE',
+    tagline: 'The foundational operating manual for unit economics, acquisition math, and retention.',
+    description:
+      'An essential, high-density primer for marketers, founders, and growth leads. Covers the foundational mathematics of growth: LTV:CAC ratios, payback periods, blended MER vs platform metrics, testing frameworks, and retention acceleration systems.',
+    priceInPaise: 9900,
+    compareAtInPaise: 19900,
+    currency: 'INR',
+    format: 'PDF · 1.2 MB',
+    pageCount: 32,
+    fileSize: '1.2 MB',
+    level: 'Foundational to Intermediate',
+    tags: ['Fundamentals', 'Unit Economics', 'CAC', 'LTV', 'Growth Architecture'],
+    whatYouLearn: [
+      'Master the core math of sustainable growth: LTV:CAC ratios and 60-day payback modeling.',
+      'How to calculate true Blended MER across paid and organic acquisition channels.',
+      'Deterministic A/B testing protocols to eliminate false positives in marketing experiments.',
+      'First-7-days retention architecture to slash churn and accelerate customer lifetime value.',
+    ],
+    whatsIncluded: [
+      'Comprehensive high-resolution PDF Playbook.',
+      'Unit Economics & Payback Period Calculator (Spreadsheet).',
+      'Single-operator lifetime commercial license.',
+      'Instant access & unlimited re-downloads from customer portal.',
+    ],
+    faq: [
+      {
+        question: 'Is this suitable for beginners?',
+        answer: 'Yes, it breaks down complex growth mathematics and unit economics into clear, actionable operating procedures.',
+      },
+    ],
+    previewPages: [
+      'Module 1: The Unit Economics of Growth & Payback Period modeling.',
+      'Module 2: Retention, RFM segmentation, and lifetime value acceleration.',
+    ],
+    storageKey: 'products/digital-marketing-fundamentals.pdf',
+    isPublished: true,
+    isFeatured: true,
+    isBestseller: false,
+    sortOrder: 1,
+    createdAt: new Date('2026-03-20'),
+    updatedAt: new Date('2026-03-20'),
+  },
+  {
     id: 'cmvc968mz0000ryd8uw7rm8vv',
     slug: 'projectmistos-audit',
     title: 'Projectmistos Audit',
