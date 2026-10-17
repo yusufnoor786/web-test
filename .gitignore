@@ -45,3 +45,8 @@ dev.db
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local product storage (heavy binary files served from Cloudflare R2 in production)
+/storage/products/*
+!/storage/products/.gitkeep
+

@@ -93,7 +93,18 @@ MMDP/
 
 ## 4. Quickstart & Local Setup
 
-### Step 1: Install Dependencies
+### ⚡ Option A: 1-Click Automated Setup (MacBook M1 / Apple Silicon)
+Run the all-in-one setup script to automatically configure Homebrew, Node.js, npm, dependencies, `.env`, SQLite database, assets, seed catalog, and admin credentials:
+```bash
+./setup-mac.sh
+# or: npm run setup
+```
+
+---
+
+### 🛠 Option B: Manual Setup
+
+#### Step 1: Install Dependencies
 ```bash
 npm install
 ```
@@ -107,7 +118,8 @@ cp .env.example .env
 The default `.env` is pre-configured for instant local development:
 ```env
 DATABASE_URL="file:./dev.db"
-ADMIN_SECRET_KEY="growth_archive_admin_secure_key_2026"
+ADMIN_EMAIL="admin@thegrowtharchive.com"
+ADMIN_PASSWORD="ReplaceWithSecurePassphrase2026!#"
 RAZORPAY_KEY_ID="rzp_test_growtharchive"
 RAZORPAY_KEY_SECRET="growth_secret_key_mock"
 RAZORPAY_WEBHOOK_SECRET="webhook_secret_hash_verify"
@@ -127,6 +139,9 @@ npx tsx scripts/generate-assets.ts
 
 # Seed all 10 products, 2 bundles, coupons, and sample order
 npx prisma db seed
+
+# Provision the default administrator account (or use scripts/create-admin.ts)
+npx tsx scripts/create-admin.ts
 ```
 
 ### Step 4: Launch Development Server
@@ -143,14 +158,17 @@ The platform implements **Razorpay Standard Checkout** with complete server-side
 
 1. **Order Creation (`POST /api/orders`)**:
    - The browser sends `{ productId, customerEmail, customerName, couponCode }`.
-   - The server validates the product in the database and retrieves the authoritative price.
-   - If a coupon is provided, the server checks `isActive`, expiration, and minimum order requirements.
-   - The server creates a pending order in the database and requests a `razorpay_order_id` via the Razorpay API.
+   - The server validates the product in the database and retrieves the authoritative price in integer paise.
+   - If a coupon is provided, the server checks `isActive`, expiration, and minimum order requirements, and atomically reserves a slot.
+   - The server creates a pending order in the database and requests a `razorpay_order_id` via the Razorpay API outside database transactions.
+   - On definitive 4xx gateway failure, the order is marked `FAILED` and coupon reservation is immediately released.
+   - On timeout or 5xx, the order remains `PENDING` with reservation preserved for webhook or reaper reconciliation.
 
 2. **Payment Verification (`POST /api/payments/verify`)**:
    - Upon payment completion, Razorpay returns `razorpay_payment_id`, `razorpay_order_id`, and `razorpay_signature`.
-   - The backend computes an HMAC SHA-256 hash using `RAZORPAY_KEY_SECRET` over `${razorpay_order_id}|${razorpay_payment_id}`.
-   - If valid, the order is marked `PAID` and cryptographically secure download entitlements are generated.
+   - The backend verifies the HMAC SHA-256 signature using `timingSafeEqual`.
+   - If valid, the order is atomically transitioned to `PAID`, the coupon reservation is converted to `usedCount`, entitlements (including bundle children) are fulfilled, and a transactional receipt is enqueued.
+   - A secure HttpOnly customer session cookie (`ga_customer_session`) is established. Zero raw download tokens are exposed.
 
 3. **Zero-Friction Local Simulator Mode**:
    - When running locally without live Razorpay API keys, the built-in simulator dialog automatically appears.
@@ -161,26 +179,22 @@ The platform implements **Razorpay Standard Checkout** with complete server-side
 
 ## 6. Secure Digital Downloads Architecture
 
-Files are never exposed through public URL routes (e.g. `/public/pdfs/guide.pdf` does NOT exist).
+Files are never exposed through public static URL routes:
 
 1. **Private Storage**:
-   - Files reside in `storage/products/` on the server.
-   - `src/lib/storage.ts` verifies that every requested path is normalized and strictly located inside the storage directory, blocking directory traversal attacks (`../`).
+   - Files reside in `storage/products/` on the server or Cloudflare R2 / AWS S3.
+   - `LocalStorageProvider` verifies that every requested path is normalized and strictly located inside the storage sandbox, blocking directory traversal attacks (`../`).
 
-2. **Entitlement Tokens**:
-   - When an order is verified as `PAID`, a 256-bit cryptographically secure token (`crypto.randomBytes(32)`) is generated.
-   - Only the SHA-256 hash of the token is saved in the `DownloadEntitlement` database table.
-   - The raw unhashed token is sent to the customer on the success screen and in the transactional email.
+2. **Ephemeral Download Grants**:
+   - Authenticated customers request a download via `POST /api/entitlements/[id]/grant`.
+   - The server generates a 256-bit random token, saves its SHA-256 hash in `DownloadGrant` with a 15-minute TTL, and returns the single-use token once.
 
-3. **Streaming Endpoint (`GET /api/download/[token]/[productId]`)**:
-   - Validates that the token hash exists in the database.
-   - Checks that the associated order is marked `PAID`.
-   - Checks that the entitlement has not expired (`expiresAt`).
-   - Checks that the download count has not reached the limit (`maxDownloads`, default 5).
-   - Verifies the entitlement has not been revoked by an administrator.
-   - Logs the download event (IP address, user agent, timestamp) in `DownloadEvent`.
-   - Increments the entitlement `downloadCount`.
-   - Streams the binary file with `Content-Disposition: attachment; filename="[filename].pdf"` and `Cache-Control: private, no-store`.
+3. **Stream-Level Delivery Boundary (`GET /api/download/[token]/[productId]`)**:
+   - Validates the token hash, active order status, and quota limit.
+   - Opens the physical binary stream first.
+   - **Safe-Harbor Invariant**: If the storage stream fails to open, the grant is NOT consumed and customer quota is NOT deducted.
+   - Atomically consumes the grant, docks quota, and logs a `DownloadEvent` once delivery begins.
+   - Streams the binary file with `Content-Disposition: attachment; filename="[slug].pdf"`, `Cache-Control: private, no-store, max-age=0`, and `Referrer-Policy: no-referrer`.
 
 ---
 
@@ -189,22 +203,24 @@ Files are never exposed through public URL routes (e.g. `/public/pdfs/guide.pdf`
 Customers can easily access and re-download their purchased products at any time:
 
 1. Customer navigates to `/purchases` and enters their email.
-2. The server generates a time-limited 6-digit OTP and secure magic token.
-3. In production, this code is emailed via Resend/SMTP. (In development, the verification code is displayed on the screen and in server logs).
-4. Upon submitting the 6-digit code, the server refreshes the download tokens and displays all purchased products with fresh download links.
+2. The server dispatches a 15-minute single-use OTP and magic link without exposing account enumeration.
+3. Upon entering the 6-digit code or clicking the magic link, an authenticated customer session (`ga_customer_session`) is created.
+4. The customer accesses their digital library, reviews remaining download quotas, and requests fresh download grants.
 
 ---
 
 ## 8. Admin Control Center (`/admin`)
 
 Access the admin dashboard at `/admin`:
-- **Default Key**: `growth_archive_admin_secure_key_2026` (configurable via `ADMIN_SECRET_KEY` in `.env`)
+- **Authentication**: Identity-based login via email and scrypt-verified password.
+- **Security**: 24-hour `AdminSession` absolute TTL, session rotation, logout revocation, 5 attempts / 15 min IP rate limiting, and double-submit CSRF cookie & header (`x-ga-csrf-token`) protection.
 - **Features**:
-  - **Overview KPIs**: Total verified revenue, paid order count, registered customer count, download events, and top-selling products by revenue.
-  - **Orders Table**: Search by order number, customer email, or payment ID. Filter by status (`ALL`, `PAID`, `PENDING`, `REFUNDED`).
-  - **Refund & Revoke Action**: 1-click refund button marks the order as `REFUNDED` and immediately revokes all associated download tokens.
-  - **Products Management**: View sales volumes, toggle publication state (`Live` vs `Draft`).
-  - **Coupons Management**: View active promotional codes, usage counts, and create new flat (₹) or percentage (%) discount codes.
+  - **Overview KPIs**: Total verified revenue, paid order count, registered customer count, download events, active coupons, and top-selling products by revenue.
+  - **Orders Table**: Search by order number, customer email, or payment ID. Filter by status (`ALL`, `PAID`, `PENDING`, `REFUNDED`, `PARTIALLY_REFUNDED`, `FAILED`).
+  - **Refund Management**: Full refund executes Razorpay gateway refund, marks order as `REFUNDED`, and revokes entitlements and grants. Partial refund refunds specified amount without revoking entitlements.
+  - **Entitlements Management**: View customer asset access and manually revoke access with audit logging.
+  - **Coupons Management**: View active promotional codes, capacity/usage limits (`usedCount` and `reservedCount`), toggle active state, and create new flat (₹) or percentage (%) discount codes.
+  - **Audit Trail**: Every privileged administrative action produces an immutable `AuditLog` entry.
 
 ---
 
@@ -225,9 +241,12 @@ Access the admin dashboard at `/admin`:
    - `RAZORPAY_KEY_ID` & `RAZORPAY_KEY_SECRET`: Live credentials from [Razorpay Dashboard](https://dashboard.razorpay.com).
    - `RAZORPAY_WEBHOOK_SECRET`: Webhook secret configured under Razorpay Settings -> Webhooks pointing to `https://yourdomain.com/api/webhooks/razorpay`.
    - `RESEND_API_KEY`: API key from [Resend](https://resend.com) for transactional emails.
-   - `ADMIN_SECRET_KEY`: Long, cryptographically random secret key.
    - `NEXT_PUBLIC_SITE_URL`: Production canonical domain (e.g. `https://thegrowtharchive.com`).
 3. Run migrations on production database:
    ```bash
    npx prisma migrate deploy
+   ```
+4. Create production administrator:
+   ```bash
+   npx tsx scripts/create-admin.ts
    ```

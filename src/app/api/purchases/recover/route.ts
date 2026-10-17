@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
+import { generateSecureToken, hashToken } from '@/lib/auth/crypto';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // To prevent user enumeration, always return success message even if email not found
+    // To prevent user enumeration, always return identical success message
     if (!customer || customer.orders.length === 0) {
       return NextResponse.json({
         success: true,
@@ -28,16 +28,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Generate 6-digit recovery OTP and magic token
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const magicSecret = crypto.randomBytes(24).toString('hex');
-    const combinedToken = `${otp}:${magicSecret}`;
-    const tokenHash = crypto.createHash('sha256').update(combinedToken).digest('hex');
+    // Generate cryptographically secure 256-bit raw token
+    const rawToken = generateSecureToken();
+    const tokenHash = hashToken(rawToken);
 
-    // Store token valid for 30 minutes
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    // Store single-use magic link valid for 15 minutes
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    await prisma.purchaseRecoveryToken.create({
+    await prisma.customerMagicLink.create({
       data: {
         customerId: customer.id,
         tokenHash,
@@ -46,20 +44,20 @@ export async function POST(req: NextRequest) {
     });
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const magicLink = `${siteUrl}/purchases?email=${encodeURIComponent(cleanEmail)}&token=${combinedToken}`;
+    const magicLink = `${siteUrl}/api/purchases/verify?token=${rawToken}`;
 
-    // Log recovery details cleanly for local verification
-    console.log(`\n--- [PURCHASE RECOVERY OTP DISPATCH] ---`);
-    console.log(`Customer: ${customer.email}`);
-    console.log(`Recovery Code (OTP): ${otp}`);
-    console.log(`Recovery Token: ${combinedToken}`);
-    console.log(`Magic Direct Link: ${magicLink}`);
-    console.log(`---------------------------------------\n`);
+    // Development-only notice (In production, dispatched via EmailOutbox worker)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`\n--- [PURCHASE RECOVERY MAGIC LINK] ---`);
+      console.log(`Customer: ${customer.email}`);
+      console.log(`Magic Link (Expires in 15m): ${magicLink}`);
+      console.log(`---------------------------------------\n`);
+    }
 
     return NextResponse.json({
       success: true,
       message: 'If an account with verified purchases exists for this email, access details have been sent.',
-      debugOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+      debugLink: process.env.NODE_ENV !== 'production' ? magicLink : undefined,
     });
   } catch (err) {
     console.error('Purchase recovery error:', err);

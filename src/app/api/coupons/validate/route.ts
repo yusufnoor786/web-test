@@ -9,7 +9,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: false, message: 'Please enter a coupon code' }, { status: 400 });
     }
 
-    const subtotal = Number(orderAmount) || 0;
+    const subtotalInRupees = Number(orderAmount) || 0;
+    const subtotalInPaise = Math.round(subtotalInRupees * 100);
     const cleanCode = code.trim().toUpperCase();
 
     const coupon = await prisma.coupon.findUnique({
@@ -24,40 +25,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ valid: false, message: 'This coupon code has expired' }, { status: 400 });
     }
 
-    if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
+    const availableSlots = coupon.maxUses === null ? 999999 : coupon.maxUses - (coupon.usedCount + coupon.reservedCount);
+    if (availableSlots <= 0) {
       return NextResponse.json({ valid: false, message: 'Coupon usage limit reached' }, { status: 400 });
     }
 
-    if (subtotal < coupon.minOrderAmount) {
+    if (subtotalInPaise < coupon.minOrderInPaise) {
+      const minRequiredRupees = Math.round(coupon.minOrderInPaise / 100);
       return NextResponse.json(
         {
           valid: false,
-          message: `Minimum order amount of ₹${coupon.minOrderAmount} required for this coupon`,
+          message: `Minimum order amount of ₹${minRequiredRupees} required for this coupon`,
         },
         { status: 400 }
       );
     }
 
-    let discountAmount = 0;
+    let discountInPaise = 0;
     if (coupon.discountType === 'PERCENTAGE') {
-      discountAmount = Math.round((subtotal * coupon.discountValue) / 100);
+      discountInPaise = Math.round((subtotalInPaise * coupon.discountValue) / 100);
     } else {
-      discountAmount = Math.min(coupon.discountValue, subtotal);
+      discountInPaise = Math.min(coupon.discountValue, subtotalInPaise);
     }
 
-    const newTotal = Math.max(1, subtotal - discountAmount);
+    const discountAmountRupees = Math.round(discountInPaise / 100);
+    const newTotalRupees = Math.max(1, subtotalInRupees - discountAmountRupees);
 
     return NextResponse.json({
       valid: true,
       code: coupon.code,
       discountType: coupon.discountType,
       discountValue: coupon.discountValue,
-      discountAmount,
-      newTotal,
+      discountAmount: discountAmountRupees,
+      discountInPaise,
+      newTotal: newTotalRupees,
       message:
         coupon.discountType === 'PERCENTAGE'
           ? `${coupon.discountValue}% discount applied`
-          : `₹${coupon.discountValue} discount applied`,
+          : `₹${discountAmountRupees} discount applied`,
     });
   } catch (err) {
     console.error('Coupon validation error:', err);

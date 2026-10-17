@@ -55,15 +55,24 @@ export function ProductPreviewModal({
     ];
   }
 
-  // Close on Escape key
+  // Lock body scroll and close on Escape key
   useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === 'Escape') {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -83,12 +92,13 @@ export function ProductPreviewModal({
         style={{
           maxWidth: '680px',
           width: '95%',
-          maxHeight: '88vh',
+          maxHeight: 'min(90vh, 90dvh)',
           display: 'flex',
           flexDirection: 'column',
           padding: '0',
           overflow: 'hidden',
           backgroundColor: '#FCFAF7',
+          margin: 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
       >

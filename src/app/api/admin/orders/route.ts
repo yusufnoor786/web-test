@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAuthorizedAdmin } from '@/lib/auth';
+import { requireAdminAuth } from '@/lib/auth/admin';
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedAdmin(req)) {
-    return NextResponse.json({ error: 'Unauthorized admin access' }, { status: 401 });
+  const auth = await requireAdminAuth(req);
+  if ('errorResponse' in auth) {
+    return auth.errorResponse;
   }
 
   try {
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
       where.OR = [
         { orderNumber: { contains: query } },
         { customer: { email: { contains: query } } },
+        { customer: { name: { contains: query } } },
         { razorpayPaymentId: { contains: query } },
       ];
     }
@@ -28,7 +30,7 @@ export async function GET(req: NextRequest) {
     const orders = await prisma.order.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: 50,
+      take: 100,
       include: {
         customer: true,
         items: {
@@ -40,6 +42,7 @@ export async function GET(req: NextRequest) {
             _count: { select: { events: true } },
           },
         },
+        refundRecords: true,
       },
     });
 

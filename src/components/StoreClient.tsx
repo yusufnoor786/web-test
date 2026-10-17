@@ -76,9 +76,13 @@ function StoreClientContent({ initialProducts }: StoreClientProps) {
   const filteredProducts = useMemo(() => {
     return initialProducts
       .filter((p) => {
-        // Category
-        if (filters.category !== 'ALL' && p.category !== filters.category) {
-          return false;
+        // Category (robust singular/plural matching)
+        if (filters.category !== 'ALL') {
+          const catFilter = filters.category.toUpperCase().replace(/S$/, '');
+          const pCat = p.category.toUpperCase().replace(/S$/, '');
+          if (pCat !== catFilter && !pCat.includes(catFilter) && !catFilter.includes(pCat)) {
+            return false;
+          }
         }
 
         // Level

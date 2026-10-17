@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       where.isFeatured = true;
     }
 
-    const products = await prisma.product.findMany({
+    const rawProducts = await prisma.product.findMany({
       where,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
       select: {
@@ -28,8 +28,8 @@ export async function GET(req: NextRequest) {
         title: true,
         category: true,
         tagline: true,
-        price: true,
-        compareAtPrice: true,
+        priceInPaise: true,
+        compareAtInPaise: true,
         format: true,
         pageCount: true,
         level: true,
@@ -38,6 +38,12 @@ export async function GET(req: NextRequest) {
         previewPages: true,
       },
     });
+
+    const products = rawProducts.map((p) => ({
+      ...p,
+      price: Math.round(p.priceInPaise / 100),
+      compareAtPrice: p.compareAtInPaise ? Math.round(p.compareAtInPaise / 100) : null,
+    }));
 
     return NextResponse.json({ products });
   } catch (err) {

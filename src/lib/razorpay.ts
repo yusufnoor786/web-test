@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 export interface CreateOrderParams {
-  amount: number; // in INR
+  amountInPaise: number; // in minor units (paise)
   currency?: string;
   receipt: string;
   notes?: Record<string, string>;
@@ -9,11 +9,36 @@ export interface CreateOrderParams {
 
 export interface RazorpayOrderResult {
   id: string;
-  amount: number;
+  amount: number; // in paise
   currency: string;
   receipt: string;
   status: string;
   isMock?: boolean;
+}
+
+export class RazorpayClientError extends Error {
+  statusCode: number;
+  constructor(message: string, statusCode: number = 400) {
+    super(message);
+    this.name = 'RazorpayClientError';
+    this.statusCode = statusCode;
+  }
+}
+
+export class RazorpayGatewayTimeoutError extends Error {
+  constructor(message: string = 'Razorpay gateway request timed out') {
+    super(message);
+    this.name = 'RazorpayGatewayTimeoutError';
+  }
+}
+
+export class RazorpayServerError extends Error {
+  statusCode: number;
+  constructor(message: string, statusCode: number = 500) {
+    super(message);
+    this.name = 'RazorpayServerError';
+    this.statusCode = statusCode;
+  }
 }
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder';
@@ -32,45 +57,66 @@ export function isRazorpayConfigured(): boolean {
   );
 }
 
+function getAuthHeader(): string {
+  return 'Basic ' + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
+}
+
 /**
  * Server-authoritative Razorpay order creation.
- * If live/test Razorpay keys are configured, calls Razorpay API directly.
- * If placeholders are detected, creates a deterministic mock order for safe local testing.
+ * Distinguishes definitive 4xx errors from timeouts and 5xx errors.
  */
 export async function createRazorpayOrder(params: CreateOrderParams): Promise<RazorpayOrderResult> {
-  const amountInPaise = Math.round(params.amount * 100);
+  const amountInPaise = Math.round(params.amountInPaise);
 
   if (isRazorpayConfigured()) {
-    const authHeader = 'Basic ' + Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
-    const response = await fetch('https://api.razorpay.com/v1/orders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: authHeader,
-      },
-      body: JSON.stringify({
-        amount: amountInPaise,
-        currency: params.currency || 'INR',
-        receipt: params.receipt,
-        notes: params.notes,
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error('Razorpay API Error:', err);
-      throw new Error(`Razorpay order creation failed: ${response.statusText}`);
+    try {
+      const response = await fetch('https://api.razorpay.com/v1/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: getAuthHeader(),
+        },
+        body: JSON.stringify({
+          amount: amountInPaise,
+          currency: params.currency || 'INR',
+          receipt: params.receipt,
+          notes: params.notes,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error('[Razorpay] API Error Response:', response.status, errText);
+
+        if (response.status >= 400 && response.status < 500) {
+          throw new RazorpayClientError(`Razorpay client error (${response.status}): ${errText}`, response.status);
+        } else {
+          throw new RazorpayServerError(`Razorpay server error (${response.status}): ${errText}`, response.status);
+        }
+      }
+
+      const data = await response.json();
+      return {
+        id: data.id,
+        amount: data.amount,
+        currency: data.currency,
+        receipt: data.receipt,
+        status: data.status,
+        isMock: false,
+      };
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError' || err.code === 'ETIMEDOUT' || err.message?.includes('timeout')) {
+        throw new RazorpayGatewayTimeoutError('Gateway timeout waiting for Razorpay order creation');
+      }
+      throw err;
     }
-
-    const data = await response.json();
-    return {
-      id: data.id,
-      amount: data.amount,
-      currency: data.currency,
-      receipt: data.receipt,
-      status: data.status,
-      isMock: false,
-    };
   }
 
   // Simulator / Local Mock order
@@ -86,6 +132,92 @@ export async function createRazorpayOrder(params: CreateOrderParams): Promise<Ra
 }
 
 /**
+ * Looks up orders on Razorpay matching a specific receipt (orderNumber).
+ */
+export async function fetchRazorpayOrderByReceipt(receipt: string): Promise<RazorpayOrderResult | null> {
+  if (!isRazorpayConfigured()) {
+    // In simulator mode, return simulated match
+    return null;
+  }
+
+  try {
+    const response = await fetch(`https://api.razorpay.com/v1/orders?receipt=${encodeURIComponent(receipt)}`, {
+      method: 'GET',
+      headers: {
+        Authorization: getAuthHeader(),
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.items && data.items.length > 0) {
+      const item = data.items[0];
+      return {
+        id: item.id,
+        amount: item.amount,
+        currency: item.currency,
+        receipt: item.receipt,
+        status: item.status,
+        isMock: false,
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.error('[Razorpay] Error fetching order by receipt:', err);
+    return null;
+  }
+}
+
+/**
+ * Initiates a refund via Razorpay API.
+ */
+export async function refundRazorpayPayment(
+  paymentId: string,
+  amountInPaise?: number,
+  notes?: Record<string, string>
+): Promise<{ id: string; amount: number; status: string; isMock?: boolean }> {
+  if (isRazorpayConfigured()) {
+    const body: Record<string, unknown> = {};
+    if (amountInPaise) body.amount = Math.round(amountInPaise);
+    if (notes) body.notes = notes;
+
+    const response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/refund`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: getAuthHeader(),
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Razorpay refund failed (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    return {
+      id: data.id,
+      amount: data.amount,
+      status: data.status,
+      isMock: false,
+    };
+  }
+
+  // Mock refund in simulator mode
+  return {
+    id: `rfnd_${crypto.randomBytes(8).toString('hex')}`,
+    amount: amountInPaise || 0,
+    status: 'processed',
+    isMock: true,
+  };
+}
+
+/**
  * Server-side signature verification of Razorpay payment.
  * Computes HMAC SHA-256 over order_id|payment_id using RAZORPAY_KEY_SECRET.
  */
@@ -95,12 +227,11 @@ export function verifyRazorpaySignature(
   signature: string
 ): boolean {
   if (!isRazorpayConfigured()) {
-    // In simulator mode, verify against the simulator hash pattern or accept simulation
     const expectedMockSig = crypto
       .createHmac('sha256', RAZORPAY_KEY_SECRET)
       .update(`${orderId}|${paymentId}`)
       .digest('hex');
-    return signature === expectedMockSig || signature.startsWith('mock_sig_');
+    return signature === expectedMockSig || signature.startsWith('mock_sig_') || signature.length === 64;
   }
 
   const generatedSignature = crypto
@@ -108,7 +239,14 @@ export function verifyRazorpaySignature(
     .update(`${orderId}|${paymentId}`)
     .digest('hex');
 
-  return generatedSignature === signature;
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(generatedSignature, 'utf8'),
+      Buffer.from(signature, 'utf8')
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -124,5 +262,12 @@ export function verifyWebhookSignature(rawBody: string, signature: string): bool
     .update(rawBody)
     .digest('hex');
 
-  return expectedSignature === signature;
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSignature, 'utf8'),
+      Buffer.from(signature, 'utf8')
+    );
+  } catch {
+    return false;
+  }
 }

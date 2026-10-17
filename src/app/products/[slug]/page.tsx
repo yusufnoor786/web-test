@@ -8,6 +8,14 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+function mapProductToClient(p: any) {
+  return {
+    ...p,
+    price: Math.round(p.priceInPaise / 100),
+    compareAtPrice: p.compareAtInPaise ? Math.round(p.compareAtInPaise / 100) : null,
+  };
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const product = await prisma.product.findUnique({
@@ -45,24 +53,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProductDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
-  const product = await prisma.product.findUnique({
+  const productRaw = await prisma.product.findUnique({
     where: { slug, isPublished: true },
   });
 
-  if (!product) {
+  if (!productRaw) {
     notFound();
   }
 
+  const product = mapProductToClient(productRaw);
+
   // Fetch related products in the same or complementary category
-  const relatedProducts = await prisma.product.findMany({
+  const relatedProductsRaw = await prisma.product.findMany({
     where: {
       isPublished: true,
       id: { not: product.id },
-      category: { not: 'BUNDLES' },
+      category: { not: 'BUNDLE' },
     },
     take: 3,
     orderBy: { sortOrder: 'asc' },
   });
+
+  const relatedProducts = relatedProductsRaw.map(mapProductToClient);
 
   // Schema.org Product & Offer structured data
   const jsonLd = {

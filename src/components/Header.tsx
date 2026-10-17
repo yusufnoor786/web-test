@@ -16,9 +16,10 @@ export function Header() {
           position: 'sticky',
           top: 0,
           zIndex: 50,
-          backgroundColor: 'rgba(251, 249, 245, 0.95)',
-          backdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(248, 250, 252, 0.92)',
+          backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--border-main)',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.05)',
           transition: 'border-color 0.2s ease',
         }}
       >

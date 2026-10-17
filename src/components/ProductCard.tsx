@@ -23,6 +23,16 @@ export interface ProductCardProps {
   previewPages?: string;
 }
 
+function getCategoryBadgeClass(category: string): string {
+  const cat = (category || '').toUpperCase().trim();
+  if (cat.includes('NOTE')) return 'badge-cat-notes';
+  if (cat.includes('GUIDE')) return 'badge-cat-guide';
+  if (cat.includes('TEMPLATE')) return 'badge-cat-template';
+  if (cat.includes('CASE')) return 'badge-cat-casestudy';
+  if (cat.includes('BUNDLE')) return 'badge-cat-bundle';
+  return 'badge-cat-playbook';
+}
+
 export function ProductCard({
   id,
   slug,
@@ -53,11 +63,11 @@ export function ProductCard({
         justifyContent: 'space-between',
         backgroundColor: 'var(--bg-surface)',
         border: '1px solid var(--border-main)',
-        borderRadius: 'var(--radius-sm)',
+        borderRadius: 'var(--radius-md)',
         padding: '20px',
-        transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
         position: 'relative',
         height: '100%',
+        boxShadow: 'var(--shadow-sm)',
       }}
     >
       {/* Top Cover Visual */}
@@ -73,29 +83,27 @@ export function ProductCard({
           />
         </Link>
 
-        {/* Floating status badge */}
+        {/* Floating status badges */}
         <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', gap: '6px', zIndex: 4 }}>
-          {isBestseller && <span className="badge badge-bestseller">Bestseller</span>}
+          {isBestseller && <span className="badge badge-bestseller">★ Bestseller</span>}
           {isFeatured && !isBestseller && <span className="badge badge-featured">Featured</span>}
         </div>
       </div>
 
       {/* Content Section */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-          <span
-            style={{
-              fontSize: '0.72rem',
-              fontFamily: 'var(--font-mono)',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              color: 'var(--text-muted)',
-              letterSpacing: '0.06em',
-            }}
-          >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <span className={`badge ${getCategoryBadgeClass(category)}`}>
             {category.replace('_', ' ')}
           </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+          <span
+            style={{
+              fontSize: '0.74rem',
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 500,
+            }}
+          >
             {format}
           </span>
         </div>
@@ -103,13 +111,14 @@ export function ProductCard({
         <h3
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: '1.25rem',
+            fontSize: '1.28rem',
             lineHeight: 1.25,
-            fontWeight: 600,
+            fontWeight: 700,
             marginBottom: '8px',
+            letterSpacing: '-0.02em',
           }}
         >
-          <Link href={`/products/${slug}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+          <Link href={`/products/${slug}`} className="product-title-link">
             {title}
           </Link>
         </h3>
@@ -143,7 +152,14 @@ export function ProductCard({
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <span style={{ fontSize: '1.3rem', fontWeight: 700, fontFamily: 'var(--font-sans)', color: 'var(--text-primary)' }}>
+            <span
+              style={{
+                fontSize: '1.35rem',
+                fontWeight: 800,
+                fontFamily: 'var(--font-sans)',
+                color: 'var(--text-primary)',
+              }}
+            >
               ₹{price}
             </span>
             {compareAtPrice && compareAtPrice > price && (
@@ -154,19 +170,20 @@ export function ProductCard({
             {discountPercent && (
               <span
                 style={{
-                  fontSize: '0.7rem',
-                  fontWeight: 600,
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
                   color: 'var(--status-success)',
-                  backgroundColor: 'var(--accent-forest-bg)',
-                  padding: '2px 6px',
-                  borderRadius: '2px',
+                  backgroundColor: 'var(--status-success-bg)',
+                  border: '1px solid #A7F3D0',
+                  padding: '2px 7px',
+                  borderRadius: 'var(--radius-full)',
                 }}
               >
                 -{discountPercent}%
               </span>
             )}
           </div>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '2px' }}>
             Instant digital access
           </span>
         </div>

@@ -1,32 +1,44 @@
 import { PrismaClient } from '@prisma/client';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { hashPassword } from '../src/lib/auth/crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Clearing existing records...');
+  console.log('[Seed] Cleaning existing records in relational order...');
   await prisma.downloadEvent.deleteMany({});
+  await prisma.downloadGrant.deleteMany({});
   await prisma.downloadEntitlement.deleteMany({});
   await prisma.orderItem.deleteMany({});
+  await prisma.refundRecord.deleteMany({});
+  await prisma.emailOutbox.deleteMany({});
   await prisma.order.deleteMany({});
-  await prisma.purchaseRecoveryToken.deleteMany({});
+  await prisma.customerSession.deleteMany({});
+  await prisma.customerMagicLink.deleteMany({});
   await prisma.customer.deleteMany({});
+  await prisma.bundleItem.deleteMany({});
   await prisma.product.deleteMany({});
   await prisma.coupon.deleteMany({});
+  await prisma.rateLimitBucket.deleteMany({});
+  await prisma.adminSession.deleteMany({});
+  await prisma.auditLog.deleteMany({});
+  await prisma.adminUser.deleteMany({});
   await prisma.contactInquiry.deleteMany({});
 
-  console.log('Seeding products...');
+  console.log('[Seed] Seeding 10 core digital marketing products...');
 
   const productsData = [
     {
       slug: 'meta-ads-playbook',
       title: 'Meta Ads Playbook: 2026 Campaign Architecture & Scaling',
-      category: 'PLAYBOOKS',
+      category: 'PLAYBOOK',
       tagline: 'The consolidated campaign framework for scaling profitably in the modern algorithmic auction.',
       description:
         'A comprehensive, tactical playbook for media buyers, growth leads, and founders spending between ₹50,000 and ₹20,00,000/month on Meta. Learn how to structure broad Advantage+ campaigns, systematically isolate and scale creative winners, configure conversion tracking via CAPI, and calculate true blended acquisition costs.',
-      price: 199,
-      compareAtPrice: 399,
+      priceInPaise: 19900,
+      compareAtInPaise: 39900,
       currency: 'INR',
       format: 'PDF Dossier + 3 Spreadsheets',
       pageCount: 104,
@@ -49,39 +61,25 @@ async function main() {
       ]),
       faq: JSON.stringify([
         {
-          q: 'Is this suitable for e-commerce or lead generation?',
-          a: 'Both. The consolidated account architecture applies to any objective, with dedicated chapters detailing lead gen forms and DTC purchase optimizations.',
+          question: 'Is this suitable for e-commerce or lead generation?',
+          answer: 'Both. The consolidated account architecture applies to any objective, with dedicated chapters detailing lead gen forms and DTC purchase optimizations.',
         },
         {
-          q: 'Does this cover Advantage+ Shopping Campaigns (ASC)?',
-          a: 'Yes. Chapter 4 is entirely devoted to ASC budgeting, existing customer bid caps, and asset group diversification.',
+          question: 'Does this cover Advantage+ Shopping Campaigns (ASC)?',
+          answer: 'Yes. Chapter 4 is entirely devoted to ASC budgeting, existing customer bid caps, and asset group diversification.',
         },
         {
-          q: 'How will I receive this product?',
-          a: 'Immediately after successful checkout, you will receive a secure tokenized download link on the confirmation page and via email.',
+          question: 'How will I receive this product?',
+          answer: 'Immediately after successful checkout, you will receive access in your customer portal with secure on-demand download tokens.',
         },
       ]),
       previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'Executive Briefing & Account Liquidity',
-          content:
-            'The historical playbook of hyper-targeting 50 interest ad sets is dead. Meta’s auction reward liquidity above all else. This chapter outlines the mathematical proof behind account consolidation and why reducing ad set friction unlocks predictable CPM discounts.',
-        },
-        {
-          page: 2,
-          title: 'The 3-Tier Sandbox Architecture',
-          content:
-            'We isolate our spending into three distinct buckets: Sandbox (7-day rapid testing), Scaling (proven winners on broad targeting), and Retention (customer LTV acceleration). Here is the exact budget distribution ratio across tiers.',
-        },
-        {
-          page: 3,
-          title: 'Deterministic Cut & Scale Decision Tree',
-          content:
-            'Never rely on emotional gut feelings when turning ads off. Use this deterministic decision tree: If Thumb-Stop Ratio < 30% at 500 impressions, kill immediately. If Outbound CTR > 1.8% and CPA < Target, graduate to scaling tier.',
-        },
+        'Executive Briefing: The historical playbook of hyper-targeting 50 interest ad sets is dead. Meta’s auction rewards liquidity above all else.',
+        'The 3-Tier Sandbox Architecture: We isolate spending into three distinct buckets: Sandbox, Scaling, and Retention.',
+        'Deterministic Cut & Scale Decision Tree: Never rely on emotional gut feelings. Use deterministic thresholds for thumb-stop and CTR.',
       ]),
-      filePath: 'meta-ads-playbook.pdf',
+      storageKey: 'products/meta-ads-playbook.pdf',
+      checksumSha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
       isPublished: true,
       isFeatured: true,
       isBestseller: true,
@@ -90,413 +88,348 @@ async function main() {
     {
       slug: 'seo-master-notes',
       title: 'SEO Master Notes: Information Architecture & Ranking Signals',
-      category: 'NOTES',
+      category: 'NOTE',
       tagline: 'Structured, no-fluff technical and editorial notes on building defensible topical authority.',
       description:
         'A dense, reference-grade notebook covering modern organic search. From schema entity graphs and crawl budget management to programmatic SEO architectures and topic cluster mapping, these notes serve as an everyday handbook for serious search practitioners.',
-      price: 149,
-      compareAtPrice: 299,
+      priceInPaise: 14900,
+      compareAtInPaise: 29900,
       currency: 'INR',
       format: 'PDF Notebook',
-      pageCount: 82,
-      fileSize: '18.6 MB',
-      level: 'All Levels',
-      tags: JSON.stringify(['SEO', 'Organic Search', 'Technical SEO', 'Information Architecture', 'Topical Authority']),
+      pageCount: 68,
+      fileSize: '14.8 MB',
+      level: 'Advanced',
+      tags: JSON.stringify(['SEO', 'Technical SEO', 'Topical Authority', 'Schema', 'Information Architecture']),
       whatYouLearn: JSON.stringify([
-        'How search engines parse semantic entities and topic co-occurrence in modern ranking systems.',
-        'Structuring pillar and satellite content hierarchies that pass maximum PageRank internally.',
-        'Core Web Vitals remediation: reducing TTFB, LCP, and CLS without expensive engineering rewrites.',
-        'How to conduct competitive content gap audits that identify low-hanging organic traffic wins.',
-        'Programmatic directory architectures that scale to thousands of indexable, high-value landing pages.',
+        'Building hierarchical topic clusters that build reciprocal internal link equity.',
+        'Configuring JSON-LD schema entity graphs to claim Knowledge Graph ownership.',
+        'Preventing crawl budget waste on large dynamic catalogs and faceted navigation.',
+        'Reverse-engineering competitor ranking signals with deterministic content delta audits.',
       ]),
       whatsIncluded: JSON.stringify([
-        '82-page reference-formatted PDF with clean diagrams and code snippets.',
-        'Technical Site Audit Checklist (54 critical inspection points).',
-        'JSON-LD Schema Templates for Articles, FAQs, Products, and Local Business.',
-        'Internal Link Architecture Mapping sheet.',
+        '68-page reference PDF with syntax diagrams and code samples.',
+        'JSON-LD Schema Template Library (Organization, Product, Article, FAQPage).',
+        'Topical Cluster Mapping Notion Board template.',
       ]),
       faq: JSON.stringify([
         {
-          q: 'Are these notes beginner-friendly?',
-          a: 'Yes. While it goes deep into technical architecture, every concept starts with foundational definitions and plain English explanations.',
-        },
-        {
-          q: 'Is this updated for recent core algorithm updates?',
-          a: 'Yes, fully updated with emphasis on first-party original data, author credentials, and entity coherence.',
+          question: 'Are these notes focused on algorithmic search or generative engines (GEO)?',
+          answer: 'Both. The notes focus on semantic entity optimization, which forms the underlying knowledge structure parsed by both Google Search and LLM answer engines.',
         },
       ]),
       previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'Semantic Entity Architecture',
-          content:
-            'Keywords are strings; entities are things. In this opening section, we unpack how search engine knowledge graphs understand brand relationships and why co-occurring entity references outweigh repetitive keyword stuffing.',
-        },
-        {
-          page: 2,
-          title: 'The Internal Link Multiplier',
-          content:
-            'Most websites waste 60% of their accumulated authority due to orphan pages and generic anchor texts. We examine mathematical models for link equity distribution across multi-tier directory structures.',
-        },
-        {
-          page: 3,
-          title: 'Technical Crawl Budget Optimization',
-          content:
-            'A practical checklist for handling faceted navigation, parameter cleanups, and robots.txt directives to ensure bots focus crawl cycles exclusively on indexable, revenue-generating URLs.',
-        },
+        'Entity Graphs vs Keywords: Modern search engines rank entities and relationships, not isolated keyword densities.',
+        'Hierarchical Topic Modeling: The mathematical structure of tier-1 hubs and tier-2 spokes.',
       ]),
-      filePath: 'seo-master-notes.pdf',
-      isPublished: true,
-      isFeatured: true,
-      isBestseller: true,
-      sortOrder: 2,
-    },
-    {
-      slug: 'digital-marketing-fundamentals',
-      title: 'Digital Marketing Fundamentals: Growth Architecture',
-      category: 'NOTES',
-      tagline: 'The essential playbook for understanding modern customer acquisition, unit economics, and retention.',
-      description:
-        'A comprehensive foundation designed to clear the noise in digital marketing. Covers unit economics (CAC, LTV, MER, Payback Period), multi-channel customer journey mapping, conversion rate fundamentals, and retention loops.',
-      price: 99,
-      compareAtPrice: 199,
-      currency: 'INR',
-      format: 'PDF Guide',
-      pageCount: 64,
-      fileSize: '14.1 MB',
-      level: 'Beginner to Intermediate',
-      tags: JSON.stringify(['Fundamentals', 'Unit Economics', 'Growth Strategy', 'CAC', 'LTV', 'Marketing Funnels']),
-      whatYouLearn: JSON.stringify([
-        'How to calculate true blended CAC and determine sustainable marketing efficiency ratios (MER).',
-        'The psychology of conversion: attention, value proposition, proof, and friction reduction.',
-        'Comparing channels objectively: Organic Search vs Paid Social vs Performance Search vs Email.',
-        'How to build a financial growth forecast model based on real conversion benchmarks.',
-        'Retention mechanics: setting up the first 30-day lifecycle to maximize repeat purchase rates.',
-      ]),
-      whatsIncluded: JSON.stringify([
-        '64-page structured foundational PDF.',
-        'Marketing Unit Economics Calculator (Excel / Google Sheets).',
-        'Customer Journey Wireframing Kit.',
-      ]),
-      faq: JSON.stringify([
-        {
-          q: 'Who is this for?',
-          a: 'Founders, career switchers, and junior marketers who want to understand how the business side of marketing actually works without fluffy jargon.',
-        },
-      ]),
-      previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'The Real Mathematics of Growth',
-          content:
-            'Traffic without conversion is vanity. Conversion without margin is bankruptcy. We start by deconstructing the core financial engine: Acquisition Cost, Gross Margin, and Contribution Margin per order.',
-        },
-        {
-          page: 2,
-          title: 'The 4 Pillars of Marketing Efficiency',
-          content:
-            'Evaluating channel viability through the lens of intent vs interruption. How to balance demand capture (Google Search) with demand generation (Meta, YouTube, Content).',
-        },
-      ]),
-      filePath: 'digital-marketing-fundamentals.pdf',
+      storageKey: 'products/seo-master-notes.pdf',
+      checksumSha256: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
       isPublished: true,
       isFeatured: true,
       isBestseller: false,
-      sortOrder: 3,
+      sortOrder: 2,
     },
     {
-      slug: 'scaling-d2c-growth-experiments',
-      title: 'Scaling to ₹50L/mo: Real Growth Experiments & Post-Mortem',
-      category: 'CASE_STUDIES',
-      tagline: 'Unfiltered data, spend sheets, split-test results, and painful mistakes from the trenches.',
+      slug: 'high-converting-landing-page-guide',
+      title: 'High-Converting Landing Pages: Visual Hierarchy & Copy Systems',
+      category: 'GUIDE',
+      tagline: 'The wireframe and copywriting framework for turning paid clicks into paying customers.',
       description:
-        'An authentic, behind-the-scenes case study documenting 12 months of systematic growth experiments. Includes real ad spend breakdowns, unedited split test results, what worked, what burned ₹8 Lakhs in ad spend, and the key pivots that turned the business cash-flow positive.',
-      price: 149,
-      compareAtPrice: 299,
+        'A comprehensive guide to conversion rate optimization (CRO) built around 18 proven structural archetypes. Learn how to craft above-the-fold value propositions, write objection-crushing microcopy, and optimize mobile load speed for maximum conversion yield.',
+      priceInPaise: 12900,
+      compareAtInPaise: 24900,
       currency: 'INR',
-      format: 'PDF Case Study + Raw Data Tables',
-      pageCount: 52,
-      fileSize: '19.8 MB',
+      format: 'PDF Guide + Figma Wireframe Kit',
+      pageCount: 82,
+      fileSize: '32.1 MB',
       level: 'All Levels',
-      tags: JSON.stringify(['Case Study', 'Experiments', 'Growth Hacking', 'D2C', 'Spend Analysis', 'Real Data']),
+      tags: JSON.stringify(['CRO', 'Landing Pages', 'Copywriting', 'Design Systems', 'Figma', 'UX']),
       whatYouLearn: JSON.stringify([
-        'The exact ad tests that failed and why broad lookalike audiences burned budget.',
-        'How simplifying the product checkout page produced an instant 22.4% lift in completed orders.',
-        'The creative format pivot: why raw phone video crushed high-budget agency productions.',
-        'How introducing a post-purchase 1-click bundle lifted average order value from ₹850 to ₹1,420.',
-        'The breakdown of cash flow timing: managing ad spend float vs inventory restocking cycles.',
+        'The 5-second clarity test for above-the-fold headline and visual alignment.',
+        'How to arrange trust badges, social proof, and comparison tables for maximum impact.',
+        'Mobile-first layout hygiene: sticky CTAs, tap target ergonomics, and form friction removal.',
       ]),
       whatsIncluded: JSON.stringify([
-        '52-page deep-dive PDF case study with full data tables and unedited charts.',
-        'Raw Experiment Log (notion template) tracking 48 individual hypotheses and outcomes.',
-        'Financial Post-Mortem spreadsheet.',
+        '82-page illustrated conversion guide.',
+        'Figma UI Kit containing 18 ready-to-use landing page section wireframes.',
+        'Copywriting swipe file with 50 high-converting headline templates.',
       ]),
       faq: JSON.stringify([
         {
-          q: 'Are the revenue numbers and data real?',
-          a: 'Yes. All data is taken directly from actual ad accounts and payment gateway dashboards, with brand identifiers redacted for confidentiality.',
+          question: 'Do I need Figma experience to use this?',
+          answer: 'No. The PDF guide explains all psychological and architectural principles independently. The Figma kit is an optional bonus for designers and builders.',
         },
       ]),
       previewPages: JSON.stringify([
+        'Above-the-Fold Psychology: Why visitors bounce before scrolling and the exact 4 elements required in the primary viewport.',
+        'Social Proof Placement Dynamics: Positioning testimonial quotes alongside objection triggers.',
+      ]),
+      storageKey: 'products/high-converting-landing-page-guide.pdf',
+      checksumSha256: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a',
+      isPublished: true,
+      isFeatured: false,
+      isBestseller: true,
+      sortOrder: 3,
+    },
+    {
+      slug: 'b2b-growth-engine-playbook',
+      title: 'B2B Growth Engine: Outbound Systems & Pipeline Velocity',
+      category: 'PLAYBOOK',
+      tagline: 'The blueprint for predictable enterprise pipeline generation without spamming.',
+      description:
+        'A rigorous operating manual for B2B founders, revenue leaders, and demand generation managers. Covers account identification, warm intent triggers, multi-threaded LinkedIn and email orchestration, and sales enablement handoffs.',
+      priceInPaise: 17900,
+      compareAtInPaise: 34900,
+      currency: 'INR',
+      format: 'PDF Playbook + CRM Setup Schema',
+      pageCount: 96,
+      fileSize: '19.4 MB',
+      level: 'Intermediate to Advanced',
+      tags: JSON.stringify(['B2B', 'Demand Gen', 'Outbound', 'Pipeline', 'Cold Email', 'LinkedIn']),
+      whatYouLearn: JSON.stringify([
+        'Scoring target accounts based on job postings, tech stack changes, and hiring intent.',
+        'Designing 4-touch personalized outreach sequences that generate 12%+ positive reply rates.',
+        'Aligning SDR prospecting with marketing-driven content syndication.',
+      ]),
+      whatsIncluded: JSON.stringify([
+        '96-page comprehensive tactical playbook.',
+        'HubSpot & Salesforce pipeline stage configuration blueprints.',
+        '15 proven B2B cold email sequence templates.',
+      ]),
+      faq: JSON.stringify([
         {
-          page: 1,
-          title: 'The Baseline: Stalling at ₹8L/mo',
-          content:
-            'In Q1, we hit a hard ceiling. Every incremental ₹10,000 in ad spend drove higher CAC with zero marginal profit. Here is the exact diagnostic audit that uncovered our creative fatigue bottleneck.',
-        },
-        {
-          page: 2,
-          title: 'Experiment #14: The Offer Overhaul',
-          content:
-            'Instead of discounting our hero product, we bundled it with an operational accessory and priced it at ₹1,499. Conversion rates did not drop; revenue per visitor surged 43%.',
+          question: 'Is this focused on enterprise or mid-market?',
+          answer: 'The strategies are optimized for deal sizes ranging from ₹3L to ₹50L Annual Contract Value (ACV).',
         },
       ]),
-      filePath: 'growth-experiments-case-study.pdf',
+      previewPages: JSON.stringify([
+        'Intent Trigger Mapping: Spotting buying signals before competitors reach out.',
+        'Multi-Threaded Outreach Workflows: Coordinating touchpoints across executive decision makers.',
+      ]),
+      storageKey: 'products/b2b-growth-engine-playbook.pdf',
+      checksumSha256: 'ef2d127de37b942baad06145e54b0c619a1f22327b2ebbcfbec78f5564afe39d',
       isPublished: true,
-      isFeatured: true,
-      isBestseller: true,
+      isFeatured: false,
+      isBestseller: false,
       sortOrder: 4,
     },
     {
-      slug: 'content-engine-strategy-guide',
-      title: 'Organic Content Engine & Editorial Strategy',
-      category: 'GUIDES',
-      tagline: 'The end-to-end framework for building high-signal publishing systems that convert readers into buyers.',
+      slug: 'marketing-analytics-attribution-notes',
+      title: 'Marketing Analytics & Attribution: The First-Party Data Handbook',
+      category: 'NOTE',
+      tagline: 'Technical notes on server-side tracking, blended metrics, and attribution reality.',
       description:
-        'A practical, step-by-step editorial guide for building an organic distribution engine. Learn how to discover contrarian topics, structure authoritative long-form assets, build high-leverage distribution flywheels, and capture qualified leads without spending on ads.',
-      price: 149,
-      compareAtPrice: 249,
+        'A field manual for resolving the tracking chaos caused by privacy updates and browser tracking restrictions. Detailed technical notes covering Google Tag Manager Server-Side, UTM governance, Blended CAC calculation, and Marketing Mix Modeling (MMM) basics.',
+      priceInPaise: 16900,
+      compareAtInPaise: 29900,
       currency: 'INR',
-      format: 'PDF Guide + Notion Content Hub',
-      pageCount: 74,
-      fileSize: '16.5 MB',
-      level: 'Intermediate',
-      tags: JSON.stringify(['Content Marketing', 'Editorial Strategy', 'Copywriting', 'Distribution', 'SEO Content']),
+      format: 'PDF Technical Dossier',
+      pageCount: 58,
+      fileSize: '11.2 MB',
+      level: 'Advanced',
+      tags: JSON.stringify(['Analytics', 'Attribution', 'GA4', 'Server-Side GTM', 'Tracking', 'UTM']),
       whatYouLearn: JSON.stringify([
-        'How to source high-demand topics from customer support logs, objections, and forum questions.',
-        'The 5-part anatomy of a high-signal article that naturally attracts backlinks and bookmarks.',
-        'How to turn one deep-dive guide into 10 multi-format social assets without sounding robotic.',
-        'Newsletter growth mechanisms: structuring opt-in bribes that attract high-intent buyers.',
-        'Measuring content ROI: attributing pipeline value to organic editorial articles.',
+        'Setting up Server-Side GTM on Cloud Run to bypass ad blockers cleanly and legally.',
+        'Creating a resilient UTM taxonomy across all organic and paid channels.',
+        'Calculating Blended CAC and Marketing Efficiency Ratio (MER) without platform bias.',
       ]),
       whatsIncluded: JSON.stringify([
-        '74-page illustrated tactical guide.',
-        'Editorial Calendar Notion Workspace.',
-        '15 Headline & Hook Frameworks for editorial articles.',
+        '58-page technical manual with architectural diagrams.',
+        'UTM Builder & Tracking Governance Spreadsheet.',
+        'GTM Web and Server Container export JSONs.',
       ]),
-      faq: [
+      faq: JSON.stringify([
         {
-          q: 'Does this guide require external paid tools?',
-          a: 'No, all research and distribution methods can be executed with free tools or standard spreadsheets.',
+          question: 'Do I need developer skills to implement server-side tracking?',
+          answer: 'Basic understanding of DNS and cloud containers is helpful; the guide provides step-by-step terminal commands and cloud configurations.',
         },
-      ],
+      ]),
       previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'The Fluff Filter: What Makes Content Authoritative',
-          content:
-            'Most corporate blogs publish lukewarm summaries that nobody reads. Authoritative content contains three ingredients: proprietary data, contrarian opinions, and reproducible step-by-step instructions.',
-        },
+        'The Illusion of Platform ROAS: Why adding platform metrics together produces fictional revenue.',
+        'Server-Side Event Architecture: Routing payloads directly to Meta CAPI and GA4.',
       ]),
-      filePath: 'content-engine-strategy-guide.pdf',
+      storageKey: 'products/marketing-analytics-attribution-notes.pdf',
+      checksumSha256: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
       isPublished: true,
       isFeatured: false,
       isBestseller: false,
       sortOrder: 5,
     },
     {
-      slug: 'high-converting-funnel-guide',
-      title: 'High-Converting Funnel Architecture Guide',
-      category: 'GUIDES',
-      tagline: 'Wireframes, messaging frameworks, and friction-reducing checkout flows for maximum conversion.',
+      slug: 'growth-experiment-operating-system',
+      title: 'The Growth Experiment OS: Notion Workspace & Prioritization System',
+      category: 'TEMPLATE',
+      tagline: 'The battle-tested Notion operating system for managing rapid marketing experimentation.',
       description:
-        'Stop losing traffic to confusing landing pages. This guide deconstructs every section of high-converting funnels: hero section formulas, objection handling matrices, social proof positioning, mobile UX design, and one-click post-purchase checkout sequences.',
-      price: 179,
-      compareAtPrice: 349,
+        'Stop managing marketing in chaotic spreadsheets. This turnkey Notion operating system brings rigorous scientific method to your marketing team. Features automated ICE scoring, backlog grooming, hypothesis documentation, and post-mortem analysis dashboards.',
+      priceInPaise: 14900,
+      compareAtInPaise: 29900,
       currency: 'INR',
-      format: 'PDF Guide + Figma Wireframe Kit',
-      pageCount: 90,
-      fileSize: '21.0 MB',
-      level: 'Intermediate',
-      tags: JSON.stringify(['CRO', 'Landing Pages', 'Funnels', 'UX Design', 'Conversion Optimization']),
+      format: 'Notion Workspace + Walkthrough PDF',
+      pageCount: 42,
+      fileSize: '8.6 MB',
+      level: 'All Levels',
+      tags: JSON.stringify(['Notion', 'Growth OS', 'Experimentation', 'ICE Scoring', 'Agile Marketing']),
       whatYouLearn: JSON.stringify([
-        'The 8 core sections every high-converting sales page must have and their exact visual hierarchy.',
-        'Eliminating mobile checkout friction: form field audits, sticky CTA rules, and payment UX.',
-        'How to write compelling objection-busting FAQ sections that clear doubts before the pricing table.',
-        'The psychology of price anchoring and tiered offer design.',
+        'Implementing the weekly growth sprint rhythm used by elite growth teams.',
+        'Formulating falsifiable hypotheses with clear statistical success metrics.',
+        'Cataloging learnings so failed experiments still build institutional knowledge.',
       ]),
       whatsIncluded: JSON.stringify([
-        '90-page conversion blueprint PDF.',
-        'Figma wireframe templates for 3 proven page archetypes (Lead Gen, Long-form Sales, Digital Product).',
-        'A/B Testing Prioritization Framework.',
+        '1-Click Duplicate Notion Workspace with relational databases.',
+        '42-page implementation manual explaining sprint ceremonies.',
+        '50 pre-loaded marketing experiment cards with execution blueprints.',
       ]),
-      faq: [
+      faq: JSON.stringify([
         {
-          q: 'Will this help if I am using custom code or WordPress?',
-          a: 'Yes, the principles and wireframe layouts apply regardless of your tech stack (Next.js, Shopify, Webflow, WordPress).',
+          question: 'Does this require a paid Notion plan?',
+          answer: 'No. The workspace works 100% on the free personal Notion tier.',
         },
-      ],
+      ]),
       previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'The 5-Second Attention Test',
-          content:
-            'When a visitor lands on your page, their subconscious evaluates three questions in under five seconds: Where am I? What can I do here? Why should I trust you? Here is how to configure the viewport.',
-        },
+        'The ICE Prioritization Engine: Scoring Impact, Confidence, and Ease objectively.',
+        'Experiment Card Anatomy: Hypotheses, variables, metrics, and documentation standards.',
       ]),
-      filePath: 'high-converting-funnel-guide.pdf',
+      storageKey: 'products/growth-experiment-operating-system.pdf',
+      checksumSha256: 'b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1',
       isPublished: true,
-      isFeatured: false,
-      isBestseller: false,
+      isFeatured: true,
+      isBestseller: true,
       sortOrder: 6,
     },
     {
-      slug: 'google-search-pmax-playbook',
-      title: 'Google Search & Performance Max Playbook',
-      category: 'PLAYBOOKS',
-      tagline: 'Capturing high-intent buyers with clean search match types and structured PMax asset groups.',
+      slug: 'email-marketing-automation-vault',
+      title: 'Email Marketing & Retention Vault: Flow Architectures & Lifecycle Copy',
+      category: 'PLAYBOOK',
+      tagline: 'The complete automated customer lifecycle playbook for recurring revenue.',
       description:
-        'A battle-tested blueprint for running Google Ads profitably. Covers transactional search keyword architectures, negative keyword filtering systems, Performance Max asset group structuring, and brand search cannibalization defense.',
-      price: 189,
-      compareAtPrice: 349,
+        'A comprehensive teardown of high-converting retention sequences. Includes detailed copy, trigger logic, and delay recommendations for Welcome series, Abandoned Checkout, Browse Abandonment, Customer Win-Back, and Post-Purchase onboarding flows.',
+      priceInPaise: 15900,
+      compareAtInPaise: 29900,
       currency: 'INR',
-      format: 'PDF Playbook + Audit Checklist',
-      pageCount: 88,
-      fileSize: '19.4 MB',
-      level: 'Intermediate to Advanced',
-      tags: JSON.stringify(['Google Ads', 'PMax', 'Search Marketing', 'PPC', 'High Intent']),
+      format: 'PDF Dossier + Klaviyo/MailerLite Flow Maps',
+      pageCount: 76,
+      fileSize: '16.5 MB',
+      level: 'All Levels',
+      tags: JSON.stringify(['Email Marketing', 'Retention', 'Klaviyo', 'Copywriting', 'Lifecycle', 'LTV']),
       whatYouLearn: JSON.stringify([
-        'Structuring Search campaigns to eliminate wasteful broad search queries.',
-        'How to feed high-signal first-party customer audience lists into Performance Max.',
-        'Excluding brand keywords to avoid paying for traffic that would have converted organically.',
-        'Setting up Value-Based Bidding (tROAS) and optimizing target margins.',
+        'Structuring non-spammy abandoned checkout flows that recover 8-14% of lost carts.',
+        'Building dynamic post-purchase educational onboarding that slashes refund rates.',
+        'Maintaining pristine domain deliverability and warming fresh sender IPs.',
       ]),
       whatsIncluded: JSON.stringify([
-        '88-page tactical PDF Playbook.',
-        '1,200+ Account-Level Negative Keyword Master List.',
-        'PMax Asset Group Optimization Checklist.',
+        '76-page tactical lifecycle manual.',
+        '32 complete email copy templates with subject line variants.',
+        'Visual flow diagrams for Klaviyo, MailerLite, and ActiveCampaign.',
       ]),
-      faq: [
+      faq: JSON.stringify([
         {
-          q: 'Is this for Lead Gen or E-commerce?',
-          a: 'Both. Specific chapters detail shopping feeds for ecommerce and offline conversion import for lead generation.',
+          question: 'Can I use this with any email service provider (ESP)?',
+          answer: 'Yes. The trigger logic, timing delays, and copy templates can be implemented in any modern ESP.',
         },
-      ],
+      ]),
       previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'Intent Mapping: The 3 Search Tiers',
-          content:
-            'We categorize search queries into Transactional Intent, Commercial Investigation, and Informational. Bidding the same on all three is the #1 reason Google Ads accounts bleed cash.',
-        },
+        'The 4-Stage Welcome Flow: Moving subscribers from curious observers to first-time buyers.',
+        'Dynamic Discount Laddering: Preserving profit margins during checkout recovery.',
       ]),
-      filePath: 'google-search-pmax-playbook.pdf',
+      storageKey: 'products/email-marketing-automation-vault.pdf',
+      checksumSha256: 'c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2',
       isPublished: true,
       isFeatured: false,
       isBestseller: false,
       sortOrder: 7,
     },
     {
-      slug: 'marketing-analytics-attribution-notes',
-      title: 'Performance Analytics & Attribution Notes',
-      category: 'NOTES',
-      tagline: 'First-party measurement, GA4 custom event schema, and multi-channel attribution models.',
+      slug: 'dtc-brand-scaling-case-study',
+      title: 'Case Study: Scaling a Direct-to-Consumer Brand from Zero to ₹50L/Month',
+      category: 'CASE_STUDY',
+      tagline: 'An unvarnished, data-rich post-mortem of unit economics, paid media, and creative velocity.',
       description:
-        'Clear, rigorous reference notes on measuring marketing performance in a privacy-first web. Covers GA4 event naming architecture, Server-Side Tag Manager setup, Blended CAC vs Channel ROAS, and cohort retention tables.',
-      price: 129,
-      compareAtPrice: 249,
+        'An exhaustive breakdown of how an Indian consumer brand scaled spend profitably over 14 months. Includes raw ad spend screenshots, monthly P&L statements, creative evolution timelines, and the painful operational mistakes made along the way.',
+      priceInPaise: 9900,
+      compareAtInPaise: 19900,
       currency: 'INR',
-      format: 'PDF Notes + Schema Templates',
-      pageCount: 58,
-      fileSize: '13.2 MB',
+      format: 'PDF Case Study Report',
+      pageCount: 52,
+      fileSize: '21.0 MB',
       level: 'All Levels',
-      tags: JSON.stringify(['Analytics', 'Attribution', 'GA4', 'Tracking', 'Metrics', 'CAC']),
+      tags: JSON.stringify(['Case Study', 'DTC', 'Scaling', 'Unit Economics', 'Real Data', 'Ad Spend']),
       whatYouLearn: JSON.stringify([
-        'Standardizing your ecommerce event taxonomy across web and app.',
-        'Why last-click attribution misleads paid social budgets, and how to compute Blended MER.',
-        'Setting up Server-Side GTM to bypass ad-blocker signal loss.',
-        'Building weekly executive reporting dashboards that surface real business health.',
+        'How unit economics evolved as ad spend scaled from ₹20,000/day to ₹1,50,000/day.',
+        'The exact creative fatigue timeline and how creative production was streamlined.',
+        'Cash flow management principles for funding inventory during rapid scaling.',
       ]),
       whatsIncluded: JSON.stringify([
-        '58-page reference PDF notes.',
-        'GA4 Event Schema Configuration Sheet.',
-        'Looker Studio Executive Dashboard Template.',
+        '52-page deep-dive report with financial statements and performance graphs.',
+        'Monthly P&L model spreadsheet with contribution margin calculations.',
       ]),
-      faq: [
+      faq: JSON.stringify([
         {
-          q: 'Do I need coding knowledge to follow this?',
-          a: 'No, all concepts are explained with clear diagrams and pre-built templates that require no custom programming.',
+          question: 'Is the brand identity disclosed?',
+          answer: 'Specific brand name is anonymized under NDA, but all metrics, numbers, ad creatives, and financials are 100% authentic and unrounded.',
         },
-      ],
+      ]),
       previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'The Post-iOS 14 Attribution Reality',
-          content:
-            'In-platform ad manager numbers are directional estimates, not accounting truths. We establish the primary metric of truth: Total Revenue divided by Total Marketing Spend (MER).',
-        },
+        'Unit Economics at Scale: Understanding contribution margin dollars versus platform ROAS.',
+        'The Creative Fatigue Cliff: Why ad formats that won at ₹10L spend failed at ₹30L spend.',
       ]),
-      filePath: 'marketing-analytics-attribution-notes.pdf',
+      storageKey: 'products/dtc-brand-scaling-case-study.pdf',
+      checksumSha256: 'd4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3',
       isPublished: true,
       isFeatured: false,
       isBestseller: false,
       sortOrder: 8,
     },
     {
-      slug: 'marketers-operating-system-templates',
-      title: "Marketer's Operating System: Templates & Briefs",
-      category: 'TEMPLATES',
-      tagline: '12 ready-to-deploy Notion workspaces, Google Sheets trackers, and creative brief frameworks.',
+      slug: 'google-search-pmax-playbook',
+      title: 'Google Ads Masterclass: High-Intent Search & Performance Max Architecture',
+      category: 'PLAYBOOK',
+      tagline: 'How to capture commercial intent efficiently and rein in Performance Max waste.',
       description:
-        'A comprehensive toolkit of standard operating procedures, creative brief documents, campaign launch checklists, and annual marketing budget allocation models. Download, duplicate into your tools, and execute immediately.',
-      price: 149,
-      compareAtPrice: 299,
+        'A comprehensive guide to dominating Google Ads in 2026. Learn how to structure phrase/exact match search campaigns to capture high-intent buyers, how to audit and control PMax spend with negative keyword scripts, and how to optimize for value-based conversions.',
+      priceInPaise: 18900,
+      compareAtInPaise: 34900,
       currency: 'INR',
-      format: 'ZIP Resource Bundle (12 Assets)',
-      pageCount: 12,
-      fileSize: '35.0 MB',
-      level: 'All Levels',
-      tags: JSON.stringify(['Templates', 'Notion', 'Spreadsheets', 'SOPs', 'Briefs', 'Productivity']),
+      format: 'PDF Playbook + Script Library',
+      pageCount: 88,
+      fileSize: '22.8 MB',
+      level: 'Intermediate to Advanced',
+      tags: JSON.stringify(['Google Ads', 'PMax', 'Search Ads', 'PPC', 'Scripts', 'Intent']),
       whatYouLearn: JSON.stringify([
-        'How to write creative briefs that copywriters and video editors understand on the first draft.',
-        'Structuring an annual marketing budget tracker with built-in scenario modeling.',
-        'Executing a flawless 24-point campaign launch QA checklist to prevent costly tracking errors.',
+        'Single-theme ad group structure that preserves keyword relevance and quality score.',
+        'How to prevent Performance Max from cannibalizing your brand search traffic.',
+        'Automated Google Ads Scripts for budget pacing and broken URL monitoring.',
       ]),
       whatsIncluded: JSON.stringify([
-        'Notion Marketing Hub workspace template.',
-        'Marketing Budget & Cash Flow Forecast Sheet.',
-        'Ad Creative Brief & Storyboard Template.',
-        'Competitor Intelligence Swipe Database.',
+        '88-page illustrated playbook.',
+        'Master Negative Keyword List (over 1,200 commercial junk search terms).',
+        'Google Ads Script pack for PMax channel spend transparency.',
       ]),
-      faq: [
+      faq: JSON.stringify([
         {
-          q: 'What software is required to use these templates?',
-          a: 'Notion (free account) and Google Sheets / Excel.',
+          question: 'Does this cover Lead Generation or E-commerce Shopping?',
+          answer: 'Both. Sections 3-5 focus on search ad intent for services/B2B; sections 6-8 cover Merchant Center and product feed optimizations.',
         },
-      ],
+      ]),
       previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'Operating System Overview',
-          content:
-            'This bundle contains production-ready SOPs and templates battle-tested across client retainers and internal brands. Simply duplicate to your workspace and start organizing your marketing operations.',
-        },
+        'Controlling the Black Box: Extracting placement data from Performance Max campaigns.',
+        'Negative Keyword Architecture: Protecting search budgets from non-commercial search intent.',
       ]),
-      filePath: 'marketers-operating-system-templates.zip',
+      storageKey: 'products/google-search-pmax-playbook.pdf',
+      checksumSha256: 'e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4',
       isPublished: true,
-      isFeatured: true,
-      isBestseller: true,
+      isFeatured: false,
+      isBestseller: false,
       sortOrder: 9,
     },
     {
       slug: 'ad-creative-swipe-briefs',
-      title: 'Ad Creative Swipe File & Production Briefs',
-      category: 'TEMPLATES',
-      tagline: '45 proven hook scripts, visual storyboards, and copywriting angles across paid channels.',
+      title: 'Ad Creative Swipe File: 40 High-Performing Direct Response Briefs',
+      category: 'TEMPLATE',
+      tagline: 'Deconstructed static and video ad formulas that consistently stop the scroll.',
       description:
-        'Never stare at a blank page again. A curated repository of 45 high-performing ad creative formulas across statics, carousels, and founder video scripts. Includes annotated teardowns explaining why each ad converted.',
-      price: 99,
-      compareAtPrice: 199,
+        'Never stare at a blank creative brief again. This collection breaks down 40 proven ad formats across DTC, B2B, and SaaS. Each brief includes visual storyboard references, psychological hook formulas, script outlines, and call-to-action variants.',
+      priceInPaise: 11900,
+      compareAtInPaise: 19900,
       currency: 'INR',
       format: 'PDF Swipe Dossier',
       pageCount: 45,
@@ -512,21 +445,18 @@ async function main() {
         '45-page annotated PDF swipe file.',
         'Editable copy templates for static and video ads.',
       ]),
-      faq: [
+      faq: JSON.stringify([
         {
-          q: 'Can I copy these angles directly?',
-          a: 'Yes, the framework provides fill-in-the-blank structures tailored to fit your specific product or service.',
-        },
-      ],
-      previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'The Scroll-Stopping Hook Framework',
-          content:
-            'The first 3 seconds dictate 80% of an ad’s performance. We analyze why high-contrast typography and curiosity-driven problem statements beat generic lifestyle visuals.',
+          question: 'Can I copy these angles directly?',
+          answer: 'Yes, the framework provides fill-in-the-blank structures tailored to fit your specific product or service.',
         },
       ]),
-      filePath: 'ad-creative-swipe-briefs.pdf',
+      previewPages: JSON.stringify([
+        'The Scroll-Stopping Hook Framework: Hooking viewers within the first 3 seconds.',
+        'Direct-Response Comparison Visuals: Framing product alternatives effectively.',
+      ]),
+      storageKey: 'products/ad-creative-swipe-briefs.pdf',
+      checksumSha256: 'f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5',
       isPublished: true,
       isFeatured: false,
       isBestseller: false,
@@ -539,34 +469,26 @@ async function main() {
     const created = await prisma.product.create({
       data: {
         ...p,
-        faq: typeof p.faq === 'string' ? p.faq : JSON.stringify(p.faq),
       },
     });
     createdProducts.push(created);
-    console.log(`Created product: ${created.title} (${created.id})`);
+    console.log(`[Seed] Created product: ${created.title} (${created.id})`);
   }
 
-  // Now create the 2 Curated Bundles
-  console.log('Seeding curated bundles...');
+  // Seed the 2 Curated Bundles using relational BundleItem records
+  console.log('[Seed] Seeding curated bundles with relational BundleItems...');
 
-  const allProductIds = createdProducts.map((p) => p.id);
-  const paidAcqProductIds = createdProducts
-    .filter((p) =>
-      ['meta-ads-playbook', 'google-search-pmax-playbook', 'marketing-analytics-attribution-notes'].includes(p.slug)
-    )
-    .map((p) => p.id);
-
-  // Bundle 1: Complete Library
-  await prisma.product.create({
+  // Bundle 1: Complete Growth Marketing Vault (All 10 products)
+  const completeVault = await prisma.product.create({
     data: {
       slug: 'complete-growth-marketing-library',
       title: 'The Complete Growth Marketing Vault (All 10 Products)',
-      category: 'BUNDLES',
+      category: 'BUNDLE',
       tagline: 'The entire digital knowledge archive. All notes, playbooks, guides, templates, and case studies in one package.',
       description:
-        'Gain instant, lifetime access to the entire library of 10 digital marketing products. Includes all Master Notes, Tactical Playbooks, Operating System Templates, Wireframe Guides, and Real-world Case Studies. A ₹1,360 total individual value bundled at an accessible single investment.',
-      price: 499,
-      compareAtPrice: 1360,
+        'Gain instant, lifetime access to the entire library of 10 digital marketing products. Includes all Master Notes, Tactical Playbooks, Operating System Templates, Wireframe Guides, and Real-world Case Studies. A ₹1,490 total individual value bundled at an accessible single investment.',
+      priceInPaise: 49900,
+      compareAtInPaise: 149000,
       currency: 'INR',
       format: 'Complete Digital Vault · 10 Products · 620+ Pages',
       pageCount: 620,
@@ -575,36 +497,31 @@ async function main() {
       tags: JSON.stringify(['Bundle', 'Complete Library', 'All Products', 'VIP', 'Best Value']),
       whatYouLearn: JSON.stringify([
         'Master the full growth stack: Paid Acquisition (Meta & Google), SEO, Analytics, Funnels, and Content.',
-        'Access all 12 operational templates, budget models, and creative swipe files.',
-        'Study genuine ₹50L/mo growth experiments with raw data and spend breakdowns.',
-        'Receive all future 2026 revisions and additions at no extra cost.',
+        'Access all operational templates, budget models, and creative swipe files.',
+        'Study genuine growth experiments with raw data and spend breakdowns.',
+        'Receive all future revisions and additions at no extra cost.',
       ]),
       whatsIncluded: JSON.stringify([
         'Instant access to all 10 individual products and their bonus files.',
-        'Individual download links + single 1-click master download.',
+        'Individual download links in your customer portal.',
         'Priority email Q&A support for implementation questions.',
         'Free lifetime access to all future editions and updates.',
       ]),
       faq: JSON.stringify([
         {
-          q: 'Do I get all 10 products immediately?',
-          a: 'Yes, as soon as payment is confirmed, your download portal will unlock download buttons for every single product in the library.',
+          question: 'Do I get all 10 products immediately?',
+          answer: 'Yes, as soon as payment is confirmed, your download portal will unlock access to every product in the library.',
         },
         {
-          q: 'Do I get future products added to the store?',
-          a: 'Yes, all future updates and additions to existing products are included forever.',
+          question: 'Do I get future products added to the store?',
+          answer: 'Yes, all future updates and additions to existing products are included forever.',
         },
       ]),
       previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'The Complete Vault Index',
-          content:
-            'This master bundle unifies tactical execution across paid acquisition, organic distribution, conversion optimization, and marketing analytics into an integrated operating system.',
-        },
+        'The Complete Vault Index: Unifies tactical execution across paid media, SEO, retention, and analytics.',
       ]),
-      filePath: 'meta-ads-playbook.pdf', // Primary download file fallback
-      bundleProductIds: JSON.stringify(allProductIds),
+      storageKey: 'products/complete-vault-archive.zip',
+      checksumSha256: '0718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6',
       isPublished: true,
       isFeatured: true,
       isBestseller: true,
@@ -612,17 +529,33 @@ async function main() {
     },
   });
 
-  // Bundle 2: Paid Acquisition Bundle
-  await prisma.product.create({
+  // Link all 10 products to the Complete Vault via BundleItem junction table
+  for (let i = 0; i < createdProducts.length; i++) {
+    await prisma.bundleItem.create({
+      data: {
+        bundleId: completeVault.id,
+        productId: createdProducts[i].id,
+        sortOrder: i,
+      },
+    });
+  }
+  console.log(`[Seed] Linked 10 items to bundle: ${completeVault.title}`);
+
+  // Bundle 2: Paid Acquisition Triad (Meta + Google + Analytics)
+  const paidTriadProducts = createdProducts.filter((p) =>
+    ['meta-ads-playbook', 'google-search-pmax-playbook', 'marketing-analytics-attribution-notes'].includes(p.slug)
+  );
+
+  const paidBundle = await prisma.product.create({
     data: {
       slug: 'paid-acquisition-mastery-bundle',
       title: 'Paid Acquisition Mastery Bundle (Meta + Google + Analytics)',
-      category: 'BUNDLES',
+      category: 'BUNDLE',
       tagline: 'The complete performance marketing triad: Meta Ads, Google Ads & First-Party Attribution.',
       description:
         'Everything needed to profitably acquire customers across paid social and paid search while maintaining accurate first-party measurement. Combines the Meta Ads Playbook, Google Search & PMax Playbook, and Performance Analytics Notes at 42% savings.',
-      price: 299,
-      compareAtPrice: 517,
+      priceInPaise: 29900,
+      compareAtInPaise: 55700,
       currency: 'INR',
       format: 'Triad Bundle · 3 Comprehensive Playbooks',
       pageCount: 250,
@@ -632,7 +565,7 @@ async function main() {
       whatYouLearn: JSON.stringify([
         'Run modern consolidated Meta Ads campaigns and creative testing sandboxes.',
         'Capture high-intent search traffic with negative keyword lists and structured PMax.',
-        'Measure Blended CAC and eliminate tracking blind spots with first-party GA4 modeling.',
+        'Measure Blended CAC and eliminate tracking blind spots with first-party attribution.',
       ]),
       whatsIncluded: JSON.stringify([
         'Meta Ads Playbook (104 pages + 3 Spreadsheets).',
@@ -641,20 +574,15 @@ async function main() {
       ]),
       faq: JSON.stringify([
         {
-          q: 'Are the spreadsheets included in this bundle?',
-          a: 'Yes, all bonus templates and spreadsheets from the three individual products are included.',
+          question: 'Are the spreadsheets included in this bundle?',
+          answer: 'Yes, all bonus templates and spreadsheets from the three individual products are included.',
         },
       ]),
       previewPages: JSON.stringify([
-        {
-          page: 1,
-          title: 'The Paid Acquisition Triad',
-          content:
-            'Paid media success is a three-legged stool: demand generation on Meta, demand capture on Google Search, and attribution truth in your analytics warehouse.',
-        },
+        'The Paid Acquisition Triad: Demand generation on Meta, demand capture on Google Search, and attribution truth.',
       ]),
-      filePath: 'meta-ads-playbook.pdf',
-      bundleProductIds: JSON.stringify(paidAcqProductIds),
+      storageKey: 'products/paid-acquisition-triad.zip',
+      checksumSha256: '18293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f607',
       isPublished: true,
       isFeatured: true,
       isBestseller: false,
@@ -662,36 +590,69 @@ async function main() {
     },
   });
 
-  // Seed standard promotional coupons
-  console.log('Seeding coupons...');
+  for (let i = 0; i < paidTriadProducts.length; i++) {
+    await prisma.bundleItem.create({
+      data: {
+        bundleId: paidBundle.id,
+        productId: paidTriadProducts[i].id,
+        sortOrder: i,
+      },
+    });
+  }
+  console.log(`[Seed] Linked 3 items to bundle: ${paidBundle.title}`);
+
+  // Seed standard promotional coupons with atomic reservation support
+  console.log('[Seed] Seeding promotional coupons with atomic reservation fields...');
   await prisma.coupon.createMany({
     data: [
       {
         code: 'LAUNCH20',
         discountType: 'PERCENTAGE',
-        discountValue: 20,
-        minOrderAmount: 0,
+        discountValue: 20, // 20%
+        minOrderInPaise: 0,
+        maxUses: 100,
+        usedCount: 0,
+        reservedCount: 0,
         isActive: true,
       },
       {
-        code: 'GROWTH50',
+        code: 'GROWTH500',
         discountType: 'FIXED',
-        discountValue: 50,
-        minOrderAmount: 200,
+        discountValue: 5000, // ₹50.00
+        minOrderInPaise: 14900, // ₹149.00
+        maxUses: 50,
+        usedCount: 0,
+        reservedCount: 0,
         isActive: true,
       },
       {
         code: 'VIP100',
         discountType: 'FIXED',
-        discountValue: 100,
-        minOrderAmount: 400,
+        discountValue: 10000, // ₹100.00
+        minOrderInPaise: 29900, // ₹299.00
+        maxUses: null, // Unlimited
+        usedCount: 0,
+        reservedCount: 0,
         isActive: true,
       },
     ],
   });
 
-  // Seed an initial demo customer and completed order so the Admin panel has realistic metrics immediately
-  console.log('Seeding initial verified customer and sample order...');
+  // Seed default Admin User with scrypt password hashing
+  console.log('[Seed] Provisioning initial scrypt admin user...');
+  const adminPasswordHash = hashPassword('GrowthArchiveAdmin2026!#');
+  await prisma.adminUser.create({
+    data: {
+      email: 'admin@thegrowtharchive.com',
+      name: 'Archive Administrator',
+      passwordHash: adminPasswordHash,
+      role: 'OWNER',
+      isActive: true,
+    },
+  });
+
+  // Seed sample verified customer, paid order, and download entitlement
+  console.log('[Seed] Seeding sample verified customer, paid order, and entitlement...');
   const sampleCustomer = await prisma.customer.create({
     data: {
       email: 'alex.growth@example.com',
@@ -701,54 +662,104 @@ async function main() {
 
   const sampleOrder = await prisma.order.create({
     data: {
-      orderNumber: 'ORD-2026-1001',
+      orderNumber: 'GA-20260915-1001',
       customerId: sampleCustomer.id,
       status: 'PAID',
       currency: 'INR',
-      subtotal: 199,
-      discount: 0,
-      total: 199,
+      subtotalInPaise: 19900,
+      discountInPaise: 0,
+      totalInPaise: 19900,
       razorpayOrderId: 'order_mock_1001',
       razorpayPaymentId: 'pay_mock_1001',
       razorpaySignature: 'sig_mock_1001',
+      paidAt: new Date(),
       items: {
         create: [
           {
             productId: createdProducts[0].id, // Meta Ads Playbook
-            price: 199,
+            priceInPaise: 19900,
           },
         ],
       },
     },
   });
 
-  // Create entitlement for sample order
-  const rawToken = crypto.randomBytes(32).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-
-  await prisma.downloadEntitlement.create({
+  // Create permanent DownloadEntitlement
+  const sampleEntitlement = await prisma.downloadEntitlement.create({
     data: {
       orderId: sampleOrder.id,
       productId: createdProducts[0].id,
-      tokenHash: tokenHash,
+      customerId: sampleCustomer.id,
       maxDownloads: 5,
       downloadCount: 1,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-      events: {
-        create: {
-          ipAddress: '127.0.0.1',
-          userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-        },
-      },
+      isRevoked: false,
     },
   });
 
-  console.log('Database successfully seeded!');
+  // Create sample single-use DownloadGrant (demonstrating new decoupled grant structure)
+  const rawGrantToken = crypto.randomBytes(32).toString('hex');
+  const grantTokenHash = crypto.createHash('sha256').update(rawGrantToken).digest('hex');
+
+  const sampleGrant = await prisma.downloadGrant.create({
+    data: {
+      entitlementId: sampleEntitlement.id,
+      tokenHash: grantTokenHash,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+      usedAt: new Date(), // Already used once for the event below
+      ipAddress: '127.0.0.1',
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+    },
+  });
+
+  await prisma.downloadEvent.create({
+    data: {
+      entitlementId: sampleEntitlement.id,
+      grantId: sampleGrant.id,
+      ipAddress: '127.0.0.1',
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      downloadedAt: new Date(),
+    },
+  });
+
+  // Ensure local storage assets exist for all products in storage/products/
+  console.log('[Seed] Ensuring mock digital binary assets exist in storage/products/...');
+  const storageDir = path.resolve(process.cwd(), 'storage/products');
+  if (!fs.existsSync(storageDir)) {
+    fs.mkdirSync(storageDir, { recursive: true });
+  }
+
+  const assetFiles = [
+    'meta-ads-playbook.pdf',
+    'seo-master-notes.pdf',
+    'high-converting-landing-page-guide.pdf',
+    'b2b-growth-engine-playbook.pdf',
+    'marketing-analytics-attribution-notes.pdf',
+    'growth-experiment-operating-system.pdf',
+    'email-marketing-automation-vault.pdf',
+    'dtc-brand-scaling-case-study.pdf',
+    'google-search-pmax-playbook.pdf',
+    'ad-creative-swipe-briefs.pdf',
+    'complete-vault-archive.zip',
+    'paid-acquisition-triad.zip',
+  ];
+
+  for (const filename of assetFiles) {
+    const filePath = path.join(storageDir, filename);
+    if (!fs.existsSync(filePath)) {
+      const dummyContent = Buffer.from(
+        `%PDF-1.4\n1 0 obj\n<< /Title (${filename}) /Author (The Growth Archive) /Creator (The Growth Archive Publishing Engine) >>\nendobj\n%%EOF\n`
+      );
+      fs.writeFileSync(filePath, dummyContent);
+      console.log(`[Seed] Created private asset: ${filename}`);
+    }
+  }
+
+  console.log('[Seed] Database successfully seeded with full canonical catalog and initial scrypt admin!');
 }
 
 main()
   .catch((e) => {
-    console.error('Error seeding database:', e);
+    console.error('[Seed] Error seeding database:', e);
     process.exit(1);
   })
   .finally(async () => {

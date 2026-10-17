@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { prisma } from '@/lib/prisma';
 import { hashDownloadToken } from '@/lib/downloads';
+import { hashToken } from '@/lib/auth/crypto';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,11 +13,15 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    const tokenHash = hashToken(codeOrToken.trim());
+
+    // Atomically find customer and valid unused magic link
     const customer = await prisma.customer.findUnique({
       where: { email: cleanEmail },
       include: {
-        recoveryTokens: {
+        magicLinks: {
           where: {
+            tokenHash,
             usedAt: null,
             expiresAt: { gt: new Date() },
           },
@@ -26,7 +31,7 @@ export async function POST(req: NextRequest) {
           include: {
             items: { include: { product: true } },
             entitlements: {
-              where: { revokedAt: null },
+              where: { isRevoked: false },
               include: { product: true },
             },
           },
@@ -35,44 +40,32 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (!customer || customer.orders.length === 0) {
-      return NextResponse.json({ error: 'No account found with this email' }, { status: 404 });
+    if (!customer || customer.magicLinks.length === 0) {
+      return NextResponse.json({ error: 'Invalid or expired recovery link' }, { status: 401 });
     }
 
-    // Check tokens
-    let verified = false;
-    let matchedTokenId: string | null = null;
+    const matchedMagicLink = customer.magicLinks[0];
 
-    for (const rt of customer.recoveryTokens) {
-      // Check full combined token match
-      const testHash = crypto.createHash('sha256').update(codeOrToken.trim()).digest('hex');
-      if (testHash === rt.tokenHash) {
-        verified = true;
-        matchedTokenId = rt.id;
-        break;
-      }
+    // Atomically consume the single-use magic link
+    await prisma.customerMagicLink.update({
+      where: { id: matchedMagicLink.id },
+      data: { usedAt: new Date() },
+    });
 
-      // Check if user entered just the 6-digit OTP
-      if (codeOrToken.trim().length === 6) {
-        // In local mode / test recovery, match if OTP matches the beginning of stored token
-        verified = true;
-        matchedTokenId = rt.id;
-        break;
-      }
-    }
+    // Establish a fresh 2-hour customer session
+    const rawSessionToken = crypto.randomBytes(32).toString('hex');
+    const sessionHash = hashToken(rawSessionToken);
+    const sessionExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
-    if (!verified) {
-      return NextResponse.json({ error: 'Invalid or expired verification code' }, { status: 401 });
-    }
+    await prisma.customerSession.create({
+      data: {
+        customerId: customer.id,
+        sessionHash,
+        expiresAt: sessionExpiresAt,
+      },
+    });
 
-    if (matchedTokenId) {
-      await prisma.purchaseRecoveryToken.update({
-        where: { id: matchedTokenId },
-        data: { usedAt: new Date() },
-      });
-    }
-
-    // Refresh download tokens for all entitlements
+    // Refresh download grants for all entitlements
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const ordersOutput = [];
 
@@ -80,15 +73,15 @@ export async function POST(req: NextRequest) {
       const itemsOutput = [];
 
       for (const ent of ord.entitlements) {
-        // Refresh token hash
+        // Issue an ephemeral 15-minute single-use DownloadGrant
         const freshRawToken = crypto.randomBytes(32).toString('hex');
-        const tokenHash = hashDownloadToken(freshRawToken);
+        const grantTokenHash = hashDownloadToken(freshRawToken);
 
-        await prisma.downloadEntitlement.update({
-          where: { id: ent.id },
+        await prisma.downloadGrant.create({
           data: {
-            tokenHash,
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // extend 30 days
+            entitlementId: ent.id,
+            tokenHash: grantTokenHash,
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
           },
         });
 
@@ -107,22 +100,39 @@ export async function POST(req: NextRequest) {
       ordersOutput.push({
         id: ord.id,
         orderNumber: ord.orderNumber,
-        date: ord.createdAt,
-        total: ord.total,
-        downloads: itemsOutput,
+        createdAt: ord.createdAt,
+        total: Math.round(ord.totalInPaise / 100),
+        status: ord.status,
+        items: itemsOutput,
       });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       customer: {
+        id: customer.id,
         email: customer.email,
         name: customer.name,
       },
       orders: ordersOutput,
     });
+
+    // Set HttpOnly, Secure customer session cookie
+    response.cookies.set('ga_customer_session', rawSessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7200,
+    });
+
+    // Set security headers to protect token in browser/proxies
+    response.headers.set('Cache-Control', 'no-store, private, max-age=0');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+
+    return response;
   } catch (err) {
-    console.error('Verification error:', err);
-    return NextResponse.json({ error: 'Failed to verify recovery token' }, { status: 500 });
+    console.error('Verify recovery token error:', err);
+    return NextResponse.json({ error: 'Verification service error' }, { status: 500 });
   }
 }

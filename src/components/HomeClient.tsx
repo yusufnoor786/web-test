@@ -69,17 +69,20 @@ export function HomeClient({ featuredProducts, allProducts, bundles }: HomeClien
       {/* 1. HERO SECTION */}
       <section
         style={{
+          position: 'relative',
           borderBottom: '1px solid var(--border-main)',
-          paddingTop: '64px',
-          paddingBottom: '80px',
+          paddingTop: '72px',
+          paddingBottom: '88px',
           backgroundColor: 'var(--bg-page)',
+          overflow: 'hidden',
         }}
       >
-        <div className="container">
+        <div className="ambient-glow-indigo" />
+        <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
               gap: '56px',
               alignItems: 'center',
             }}
@@ -91,30 +94,33 @@ export function HomeClient({ featuredProducts, allProducts, bundles }: HomeClien
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  padding: '5px 12px',
+                  padding: '6px 14px',
                   backgroundColor: 'var(--bg-surface)',
-                  border: '1px solid var(--border-main)',
-                  borderRadius: 'var(--radius-xs)',
-                  fontSize: '0.72rem',
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '0.74rem',
                   fontFamily: 'var(--font-mono)',
-                  letterSpacing: '0.1em',
+                  letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  color: 'var(--text-secondary)',
-                  marginBottom: '20px',
+                  color: 'var(--text-primary)',
+                  fontWeight: 600,
+                  boxShadow: 'var(--shadow-sm)',
+                  marginBottom: '22px',
                 }}
               >
+                <span style={{ color: 'var(--brand-primary)' }}>●</span>
                 <span>The Growth Archive</span>
-                <span>•</span>
-                <span>2026 Field Notes</span>
+                <span style={{ color: 'var(--border-strong)' }}>|</span>
+                <span style={{ color: 'var(--text-muted)' }}>2026 Field Library</span>
               </div>
 
               <h1
                 style={{
                   fontFamily: 'var(--font-serif)',
-                  lineHeight: 1.12,
+                  lineHeight: 1.15,
                   marginBottom: '20px',
                   color: 'var(--text-primary)',
-                  letterSpacing: '-0.02em',
+                  letterSpacing: '-0.025em',
                 }}
               >
                 Practical digital marketing knowledge, without the fluff.
@@ -122,8 +128,8 @@ export function HomeClient({ featuredProducts, allProducts, bundles }: HomeClien
 
               <p
                 style={{
-                  fontSize: '1.1rem',
-                  lineHeight: 1.6,
+                  fontSize: '1.12rem',
+                  lineHeight: 1.65,
                   color: 'var(--text-secondary)',
                   marginBottom: '32px',
                   maxWidth: '560px',
@@ -133,7 +139,7 @@ export function HomeClient({ featuredProducts, allProducts, bundles }: HomeClien
               </p>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
-                <Link href="/store" className="btn btn-primary btn-lg" style={{ textDecoration: 'none' }}>
+                <Link href="/store" className="btn btn-accent btn-lg" style={{ textDecoration: 'none' }}>
                   <span>Explore the Library</span>
                   <ArrowRight size={16} />
                 </Link>

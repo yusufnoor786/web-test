@@ -1,9 +1,10 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Download, ShieldCheck, Mail, ArrowRight, BookOpen } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 interface DownloadTokenItem {
   productId: string;
@@ -15,6 +16,36 @@ function SuccessContent() {
   const searchParams = useSearchParams();
   const orderNumber = searchParams.get('order') || 'ORD-COMPLETED';
   const tokensParam = searchParams.get('tokens');
+
+  useEffect(() => {
+    try {
+      confetti({
+        particleCount: 75,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#4F46E5', '#10B981', '#F59E0B', '#3B82F6'],
+      });
+      const timer = setTimeout(() => {
+        confetti({
+          particleCount: 45,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: ['#4F46E5', '#10B981'],
+        });
+        confetti({
+          particleCount: 45,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: ['#F59E0B', '#3B82F6'],
+        });
+      }, 300);
+      return () => clearTimeout(timer);
+    } catch (e) {
+      // Fallback gracefully if canvas is unavailable
+    }
+  }, []);
 
   let downloadTokens: DownloadTokenItem[] = [];
   try {

@@ -11,11 +11,19 @@ export const metadata: Metadata = {
 
 export const revalidate = 60;
 
+function mapProductToClient(p: any) {
+  return {
+    ...p,
+    price: Math.round(p.priceInPaise / 100),
+    compareAtPrice: p.compareAtInPaise ? Math.round(p.compareAtInPaise / 100) : null,
+  };
+}
+
 export default async function StorePage() {
   const products = await prisma.product.findMany({
     where: { isPublished: true },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
   });
 
-  return <StoreClient initialProducts={products} />;
+  return <StoreClient initialProducts={products.map(mapProductToClient)} />;
 }

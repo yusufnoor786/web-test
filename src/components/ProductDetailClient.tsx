@@ -121,7 +121,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
             gap: '48px',
             alignItems: 'start',
             marginBottom: '64px',
@@ -163,8 +163,24 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
           {/* Right: Product Narrative & Buy Box */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <span className="badge">{product.category.replace('_', ' ')}</span>
-              {product.isBestseller && <span className="badge badge-bestseller">Bestseller</span>}
+              <span
+                className={`badge ${
+                  product.category.toUpperCase().includes('NOTE')
+                    ? 'badge-cat-notes'
+                    : product.category.toUpperCase().includes('GUIDE')
+                    ? 'badge-cat-guide'
+                    : product.category.toUpperCase().includes('TEMPLATE')
+                    ? 'badge-cat-template'
+                    : product.category.toUpperCase().includes('CASE')
+                    ? 'badge-cat-casestudy'
+                    : product.category.toUpperCase().includes('BUNDLE')
+                    ? 'badge-cat-bundle'
+                    : 'badge-cat-playbook'
+                }`}
+              >
+                {product.category.replace('_', ' ')}
+              </span>
+              {product.isBestseller && <span className="badge badge-bestseller">★ Bestseller</span>}
               <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                 {product.format}
               </span>
@@ -300,7 +316,7 @@ export function ProductDetailClient({ product, relatedProducts }: ProductDetailC
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
             gap: '56px',
             marginBottom: '64px',
           }}

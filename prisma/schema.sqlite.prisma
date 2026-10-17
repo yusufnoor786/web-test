@@ -1,0 +1,362 @@
+// =============================================================================
+// LOCAL DEVELOPMENT SCHEMA (SQLite WAL)
+// Note: This schema is for offline local development convenience ONLY.
+// The CANONICAL PRODUCTION SCHEMA is prisma/schema.prisma (PostgreSQL 16+).
+//
+// Limitations in SQLite mode:
+// 1. Enums are represented as String fields (validated in application layer).
+// 2. String arrays (String[]) and Json fields are stored as text.
+// 3. Concurrency is limited to database-level file locking (no SELECT FOR UPDATE).
+// 4. Do not validate production race conditions against this schema.
+// =============================================================================
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Product {
+  id               String                @id @default(cuid())
+  slug             String                @unique
+  title            String
+  tagline          String
+  category         String                // NOTE, GUIDE, PLAYBOOK, TEMPLATE, CASE_STUDY, BUNDLE
+  priceInPaise     Int
+  compareAtInPaise Int?
+  currency         String                @default("INR")
+  format           String
+  pageCount        Int?
+  fileSize         String?
+  level            String?
+  description      String
+  tags             String                // JSON array string in SQLite
+  whatYouLearn     String                // JSON array string in SQLite
+  whatsIncluded    String                // JSON array string in SQLite
+  faq              String                // JSON array string in SQLite
+  previewPages     String                // JSON array string in SQLite
+  storageKey       String
+  checksumSha256   String?
+  isPublished      Boolean               @default(false)
+  isFeatured       Boolean               @default(false)
+  isBestseller     Boolean               @default(false)
+  sortOrder        Int                   @default(0)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  orderItems       OrderItem[]
+  entitlements     DownloadEntitlement[]
+  bundledIn        BundleItem[]          @relation("BundleChildren")
+  bundleChildren   BundleItem[]          @relation("BundleParent")
+
+  @@index([category, isPublished, sortOrder])
+  @@index([slug])
+}
+
+model BundleItem {
+  id        String   @id @default(cuid())
+  bundleId  String
+  productId String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  bundle    Product  @relation("BundleParent", fields: [bundleId], references: [id], onDelete: Cascade)
+  product   Product  @relation("BundleChildren", fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([bundleId, productId])
+  @@index([bundleId])
+  @@index([productId])
+}
+
+model Customer {
+  id           String                @id @default(cuid())
+  email        String                @unique
+  name         String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  orders       Order[]
+  entitlements DownloadEntitlement[]
+  sessions     CustomerSession[]
+  magicLinks   CustomerMagicLink[]
+
+  @@index([email])
+}
+
+model CustomerSession {
+  id          String    @id @default(cuid())
+  customerId  String
+  sessionHash String    @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([sessionHash, expiresAt])
+}
+
+model CustomerMagicLink {
+  id         String    @id @default(cuid())
+  customerId String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  ipAddress  String?
+  createdAt  DateTime  @default(now())
+
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash, expiresAt])
+  @@index([customerId])
+}
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountType    String    // PERCENTAGE, FIXED
+  discountValue   Int
+  minOrderInPaise Int       @default(0)
+  maxUses         Int?
+  usedCount       Int       @default(0)
+  reservedCount   Int       @default(0)
+  isActive        Boolean   @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  orders          Order[]
+
+  @@index([code, isActive])
+}
+
+model Order {
+  id                    String                @id @default(cuid())
+  orderNumber           String                @unique
+  customerId            String
+  status                String                @default("PENDING") // PENDING, PAID, FAILED, CANCELLED, EXPIRED, PARTIALLY_REFUNDED, REFUNDED
+  currency              String                @default("INR")
+  subtotalInPaise       Int
+  discountInPaise       Int                   @default(0)
+  totalInPaise          Int
+  amountRefundedInPaise Int                   @default(0)
+  couponId              String?
+  couponReserved        Boolean               @default(false)
+  razorpayOrderId       String?               @unique
+  razorpayPaymentId     String?               @unique
+  razorpaySignature     String?
+  expiresAt             DateTime?
+  paidAt                DateTime?
+  refundedAt            DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  customer              Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  coupon                Coupon?               @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items                 OrderItem[]
+  entitlements          DownloadEntitlement[]
+  refundRecords         RefundRecord[]
+  emailOutboxItems      EmailOutbox[]
+
+  @@index([customerId])
+  @@index([status, createdAt])
+  @@index([razorpayOrderId])
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  productId    String
+  priceInPaise Int
+  createdAt    DateTime @default(now())
+
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, productId])
+  @@index([orderId])
+}
+
+model RefundRecord {
+  id               String   @id @default(cuid())
+  orderId          String
+  razorpayRefundId String   @unique
+  amountInPaise    Int
+  reason           String?
+  status           String   @default("PROCESSED")
+  createdAt        DateTime @default(now())
+
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([razorpayRefundId])
+}
+
+model DownloadEntitlement {
+  id            String          @id @default(cuid())
+  orderId       String
+  productId     String
+  customerId    String
+  maxDownloads  Int             @default(5)
+  downloadCount Int             @default(0)
+  isRevoked     Boolean         @default(false)
+  revokedReason String?
+  expiresAt     DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  customer      Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  grants        DownloadGrant[]
+  events        DownloadEvent[]
+
+  @@unique([orderId, productId])
+  @@index([customerId, isRevoked])
+  @@index([orderId])
+}
+
+model DownloadGrant {
+  id            String              @id @default(cuid())
+  entitlementId String
+  tokenHash     String              @unique
+  expiresAt     DateTime
+  usedAt        DateTime?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime            @default(now())
+
+  entitlement   DownloadEntitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  events        DownloadEvent[]
+
+  @@index([tokenHash, expiresAt, usedAt])
+  @@index([entitlementId])
+}
+
+model DownloadEvent {
+  id            String              @id @default(cuid())
+  entitlementId String
+  grantId       String?
+  ipAddress     String?
+  userAgent     String?
+  downloadedAt  DateTime            @default(now())
+
+  entitlement   DownloadEntitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  grant         DownloadGrant?      @relation(fields: [grantId], references: [id], onDelete: SetNull)
+
+  @@index([entitlementId, downloadedAt])
+}
+
+model RazorpayWebhookEvent {
+  id              String    @id @default(cuid())
+  razorpayEventId String    @unique
+  eventType       String
+  payload         String    // JSON string in SQLite
+  status          String    @default("RECEIVED") // RECEIVED, PROCESSING, PROCESSED, FAILED
+  retryCount      Int       @default(0)
+  maxRetries      Int       @default(5)
+  nextRetryAt     DateTime? @default(now())
+  lockedAt        DateTime?
+  lastError       String?
+  receivedAt      DateTime  @default(now())
+  processedAt     DateTime?
+
+  @@index([status, nextRetryAt])
+  @@index([razorpayEventId])
+}
+
+model EmailOutbox {
+  id             String    @id @default(cuid())
+  idempotencyKey String    @unique
+  orderId        String?
+  recipientEmail String
+  emailType      String    // ORDER_CONFIRMATION, PURCHASE_RECOVERY_MAGIC_LINK, ORDER_REFUND
+  subject        String
+  payload        String    // JSON string in SQLite
+  status         String    @default("PENDING") // PENDING, PROCESSING, SENT, FAILED
+  retryCount     Int       @default(0)
+  maxRetries     Int       @default(5)
+  nextRetryAt    DateTime? @default(now())
+  lockedAt       DateTime?
+  lastError      String?
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  order          Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextRetryAt])
+  @@index([orderId])
+}
+
+model RateLimitBucket {
+  key       String   @id
+  tokens    Int
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model AdminUser {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String
+  passwordHash String
+  role         String         @default("OPERATOR") // OWNER, OPERATOR
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  sessions     AdminSession[]
+  auditLogs    AuditLog[]
+
+  @@index([email, isActive])
+}
+
+model AdminSession {
+  id          String    @id @default(cuid())
+  adminUserId String
+  sessionHash String    @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([sessionHash, expiresAt])
+  @@index([adminUserId])
+}
+
+model AuditLog {
+  id          String     @id @default(cuid())
+  adminUserId String?
+  action      String
+  targetType  String
+  targetId    String
+  details     String?    // JSON string in SQLite
+  ipAddress   String?
+  createdAt   DateTime   @default(now())
+
+  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+}
+
+model ContactInquiry {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  createdAt DateTime @default(now())
+}

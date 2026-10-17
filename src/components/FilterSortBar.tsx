@@ -18,12 +18,12 @@ interface FilterSortBarProps {
 
 const CATEGORIES = [
   { id: 'ALL', label: 'All Products' },
-  { id: 'NOTES', label: 'Notes' },
-  { id: 'GUIDES', label: 'Guides' },
-  { id: 'PLAYBOOKS', label: 'Playbooks' },
-  { id: 'TEMPLATES', label: 'Templates' },
-  { id: 'CASE_STUDIES', label: 'Case Studies' },
-  { id: 'BUNDLES', label: 'Bundles' },
+  { id: 'PLAYBOOK', label: 'Playbooks' },
+  { id: 'NOTE', label: 'Notes' },
+  { id: 'GUIDE', label: 'Guides' },
+  { id: 'TEMPLATE', label: 'Templates' },
+  { id: 'CASE_STUDY', label: 'Case Studies' },
+  { id: 'BUNDLE', label: 'Bundles' },
 ];
 
 const LEVELS = [
@@ -46,9 +46,10 @@ export function FilterSortBar({ currentFilters, onFilterChange, totalProductsCou
       style={{
         backgroundColor: 'var(--bg-surface)',
         border: '1px solid var(--border-main)',
-        borderRadius: 'var(--radius-sm)',
+        borderRadius: 'var(--radius-md)',
         padding: '16px 20px',
         marginBottom: '32px',
+        boxShadow: 'var(--shadow-sm)',
       }}
     >
       {/* Category Tabs Row */}
@@ -71,14 +72,15 @@ export function FilterSortBar({ currentFilters, onFilterChange, totalProductsCou
               type="button"
               onClick={() => onFilterChange({ category: cat.id })}
               style={{
-                padding: '6px 14px',
-                fontSize: '0.84rem',
+                padding: '7px 16px',
+                fontSize: '0.85rem',
                 fontFamily: 'var(--font-sans)',
-                fontWeight: isActive ? 600 : 400,
+                fontWeight: isActive ? 700 : 500,
                 borderRadius: 'var(--radius-full)',
-                border: isActive ? '1px solid var(--text-primary)' : '1px solid var(--border-main)',
-                backgroundColor: isActive ? 'var(--text-primary)' : 'transparent',
-                color: isActive ? 'var(--bg-surface)' : 'var(--text-secondary)',
+                border: isActive ? '1px solid var(--brand-primary)' : '1px solid var(--border-main)',
+                backgroundColor: isActive ? 'var(--brand-primary)' : 'var(--bg-surface)',
+                color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
+                boxShadow: isActive ? '0 2px 8px rgba(79, 70, 229, 0.28)' : 'var(--shadow-sm)',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',

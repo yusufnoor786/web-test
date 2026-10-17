@@ -1,22 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { isAuthorizedAdmin } from '@/lib/auth';
+import { requireAdminAuth } from '@/lib/auth/admin';
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedAdmin(req)) {
-    return NextResponse.json({ error: 'Unauthorized admin access' }, { status: 401 });
+  const auth = await requireAdminAuth(req);
+  if ('errorResponse' in auth) {
+    return auth.errorResponse;
   }
 
   try {
     const totalOrders = await prisma.order.count();
     const paidOrders = await prisma.order.findMany({
       where: { status: 'PAID' },
-      select: { total: true },
+      select: { totalInPaise: true },
     });
 
-    const totalRevenue = paidOrders.reduce((sum, ord) => sum + ord.total, 0);
+    const totalRevenue = paidOrders.reduce((sum, ord) => sum + Math.round(ord.totalInPaise / 100), 0);
     const totalCustomers = await prisma.customer.count();
     const totalDownloads = await prisma.downloadEvent.count();
+    const totalEntitlements = await prisma.downloadEntitlement.count();
+    const revokedEntitlements = await prisma.downloadEntitlement.count({ where: { isRevoked: true } });
+    const totalCoupons = await prisma.coupon.count();
+    const activeCoupons = await prisma.coupon.count({ where: { isActive: true } });
 
     // Top products by order items
     const items = await prisma.orderItem.findMany({
@@ -24,7 +29,7 @@ export async function GET(req: NextRequest) {
         order: { status: 'PAID' },
       },
       include: {
-        product: { select: { id: true, title: true, price: true, category: true } },
+        product: { select: { id: true, title: true, priceInPaise: true, category: true } },
       },
     });
 
@@ -39,7 +44,7 @@ export async function GET(req: NextRequest) {
         };
       }
       productSalesMap[it.productId].count += 1;
-      productSalesMap[it.productId].revenue += it.price;
+      productSalesMap[it.productId].revenue += Math.round(it.priceInPaise / 100);
     }
 
     const topProducts = Object.values(productSalesMap).sort((a, b) => b.revenue - a.revenue);
@@ -54,6 +59,15 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // Recent 10 audit logs
+    const recentAuditLogs = await prisma.auditLog.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        adminUser: { select: { name: true, email: true } },
+      },
+    });
+
     return NextResponse.json({
       revenue: totalRevenue,
       totalOrders,
@@ -61,8 +75,13 @@ export async function GET(req: NextRequest) {
       conversionRate: totalOrders > 0 ? Math.round((paidOrders.length / totalOrders) * 100) : 0,
       totalCustomers,
       totalDownloads,
+      totalEntitlements,
+      revokedEntitlements,
+      totalCoupons,
+      activeCoupons,
       topProducts,
       recentOrders,
+      recentAuditLogs,
     });
   } catch (err) {
     console.error('Error fetching admin stats:', err);
